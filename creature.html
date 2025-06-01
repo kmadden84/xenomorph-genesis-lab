@@ -1,0 +1,2490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy Creature Breeder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/framer-motion@6.5.1/dist/framer-motion.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'neon-pink': '#ff0080',
+            'neon-cyan': '#00fff7',
+            'neon-yellow': '#ffe600',
+            'danger': '#ff1133',
+            'mutant': '#00ff04',
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s infinite',
+            'bounce-gentle': 'bounce 2s infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Orbitron:wght@400;700;900&display=swap');
+    
+    .font-brutal { font-family: 'Orbitron', monospace; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #000000 0%, #0a0a0a 50%, #1a1a1a 100%);
+      min-height: 100vh;
+    }
+    
+    .brutal-card {
+      background: linear-gradient(145deg, #0a0a0a, #000000);
+      border: 2px solid #004d4d;
+      box-shadow: 0 0 20px rgba(0, 77, 77, 0.4), inset 0 0 20px rgba(0, 77, 77, 0.1);
+    }
+    
+    .brutal-card-cyan {
+      background: linear-gradient(145deg, #001122, #000811);
+      border: 2px solid #006666;
+      box-shadow: 0 0 25px rgba(0, 102, 102, 0.4), inset 0 0 15px rgba(0, 102, 102, 0.1);
+    }
+    
+    .brutal-card-yellow {
+      background: linear-gradient(145deg, #1a1600, #0d0b00);
+      border: 2px solid #666600;
+      box-shadow: 0 0 25px rgba(102, 102, 0, 0.4), inset 0 0 15px rgba(102, 102, 0, 0.1);
+    }
+    
+    .brutal-button {
+      background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+      color: #cccccc;
+      border: 2px solid #004d4d;
+      box-shadow: 0 4px 15px rgba(0, 77, 77, 0.3);
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .brutal-button:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0,102,102,0.3), transparent);
+      transition: left 0.3s;
+    }
+    
+    .brutal-button:hover:before {
+      left: 100%;
+    }
+    
+    .brutal-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 77, 77, 0.4);
+      color: #ffffff;
+    }
+    
+    .brutal-button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(0, 77, 77, 0.3);
+    }
+    
+    .brutal-button-pink {
+      background: linear-gradient(145deg, #4d0000, #330000);
+      color: #ff6666;
+      border: 2px solid #660000;
+      box-shadow: 0 0 20px rgba(102, 0, 0, 0.4);
+    }
+    
+    .brutal-button-cyan {
+      background: linear-gradient(145deg, #004d4d, #003333);
+      color: #66ffff;
+      border: 2px solid #006666;
+      box-shadow: 0 0 20px rgba(0, 102, 102, 0.4);
+    }
+    
+    .brutal-button-yellow {
+      background: linear-gradient(145deg, #4d4d00, #333300);
+      color: #ffff66;
+      border: 2px solid #666600;
+      box-shadow: 0 0 20px rgba(102, 102, 0, 0.4);
+    }
+    
+    .brutal-input {
+      background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+      color: #66ff66;
+      border: 2px solid #004d00;
+      box-shadow: inset 0 0 10px rgba(0, 77, 0, 0.3);
+    }
+    
+    .brutal-progress {
+      background: #000000;
+      border: 2px solid #004d00;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+    
+    .brutal-progress-fill {
+      background: linear-gradient(90deg, #004d00, #003300);
+      border-right: 1px solid #000000;
+      box-shadow: 0 0 10px rgba(0, 77, 0, 0.6);
+    }
+    
+    .trait-card {
+      background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+      border: 2px solid #004d4d;
+      box-shadow: 0 0 15px rgba(0, 77, 77, 0.3);
+      transition: all 0.2s ease;
+    }
+    
+    .trait-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 5px 25px rgba(0, 77, 77, 0.5);
+    }
+    
+    canvas {
+      border: 2px solid #006666;
+      box-shadow: 0 0 20px rgba(0, 102, 102, 0.4);
+    }
+    
+    .brutal-header {
+      background: linear-gradient(135deg, #000000, #1a1a1a);
+      color: #cccccc;
+      border-bottom: 3px solid #004d4d;
+      box-shadow: 0 3px 20px rgba(0, 77, 77, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .brutal-header:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 77, 77, 0.1) 2px,
+        rgba(0, 77, 77, 0.1) 4px
+      );
+      pointer-events: none;
+    }
+    
+    .brutal-tag {
+      background: linear-gradient(145deg, #4d0000, #330000);
+      color: #ff6666;
+      border: 2px solid #660000;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 2px;
+      box-shadow: 0 0 15px rgba(102, 0, 0, 0.4);
+    }
+    
+    .brutal-preview {
+      background: linear-gradient(145deg, #0d0d0d, #1a1a1a);
+      border: 2px solid #006666;
+      color: #cccccc;
+      box-shadow: 0 0 20px rgba(0, 102, 102, 0.3);
+    }
+    
+    .brutal-lifecycle {
+      background: linear-gradient(145deg, #000000, #0d0d0d);
+      border: 2px solid #666600;
+      color: #cccccc;
+      box-shadow: 0 0 15px rgba(102, 102, 0, 0.3);
+    }
+    
+    .brutal-stage {
+      background: linear-gradient(145deg, #333333, #1a1a1a);
+      border: 2px solid #666666;
+      color: #999999;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .brutal-stage:hover {
+      background: linear-gradient(145deg, #555555, #333333);
+      transform: scale(1.1);
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(102, 102, 102, 0.4);
+      color: #cccccc;
+    }
+    
+    .brutal-stage-active {
+      background: linear-gradient(145deg, #006666, #004d4d);
+      border: 2px solid #00ffff;
+      color: #ffffff;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+    }
+    
+    .brutal-stage-active:hover {
+      background: linear-gradient(145deg, #008888, #006666);
+      transform: scale(1.1);
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+    }
+    
+    .brutal-stage-completed {
+      background: linear-gradient(145deg, #004d4d, #003333);
+      border: 2px solid #00cccc;
+      color: #ccffff;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px rgba(0, 204, 204, 0.4);
+    }
+    
+    .brutal-stage-completed:hover {
+      background: linear-gradient(145deg, #006666, #004d4d);
+      transform: scale(1.1);
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(0, 204, 204, 0.6);
+    }
+    
+    .brutal-lineage {
+      background: linear-gradient(145deg, #111111, #000000);
+      border: 2px solid #444444;
+      color: #999999;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    }
+    
+    .mutation-chamber {
+      background: linear-gradient(145deg, #1a1600, #0d0b00);
+      border: 2px solid #666600;
+      box-shadow: 0 0 30px rgba(102, 102, 0, 0.4), inset 0 0 20px rgba(102, 102, 0, 0.1);
+    }
+    
+    .helix-container {
+      background: linear-gradient(145deg, #000811, #001122);
+      border: 2px solid #006666;
+      box-shadow: 0 0 20px rgba(0, 102, 102, 0.3), inset 0 0 15px rgba(0, 102, 102, 0.1);
+    }
+    
+    /* Futuristic header styling */
+    .cyber-title {
+      background: linear-gradient(45deg, #006666, #660000, #666600);
+      background-size: 300% 300%;
+      animation: gradientShift 3s ease infinite;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(0, 102, 102, 0.5);
+      position: relative;
+    }
+    
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    .cyber-subtitle {
+      color: #66ff66;
+      text-shadow: 0 0 10px rgba(102, 255, 102, 0.6);
+      letter-spacing: 3px;
+    }
+    
+    /* Remove all rounded corners for brutalist aesthetic */
+    * {
+      border-radius: 0 !important;
+    }
+    
+    /* Ensure completely dark background */
+    html, body {
+      background-color: #000000 !important;
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Borg-style grid overlay */
+    .borg-grid {
+      background-image: 
+        linear-gradient(rgba(0, 255, 136, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 136, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    
+    /* Glitch effects */
+    .glitch {
+      position: relative;
+    }
+    
+    .glitch:before,
+    .glitch:after {
+      content: attr(data-text);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .glitch:before {
+      animation: glitch-1 0.5s infinite;
+      color: #ff0080;
+      z-index: -1;
+    }
+    
+    .glitch:after {
+      animation: glitch-2 0.5s infinite;
+      color: #00fff7;
+      z-index: -2;
+    }
+    
+    @keyframes glitch-1 {
+      0%, 100% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+    }
+    
+    @keyframes glitch-2 {
+      0%, 100% { transform: translate(0); }
+      20% { transform: translate(2px, 2px); }
+      40% { transform: translate(2px, -2px); }
+      60% { transform: translate(-2px, 2px); }
+      80% { transform: translate(-2px, -2px); }
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-screen text-white font-brutal borg-grid">
+  <!-- Header -->
+  <header class="brutal-header relative">
+    <div class="container mx-auto px-4 py-6 relative z-10">
+      <h1 class="text-3xl md:text-5xl font-mono font-black text-center cyber-title glitch" data-text="XENOMORPH GENESIS LAB">
+        XENOMORPH GENESIS LAB
+      </h1>
+      <p class="text-center cyber-subtitle mt-2 font-bold uppercase tracking-wider text-sm">
+        >> CLASSIFIED BIOENGINEERING FACILITY <<
+      </p>
+      <div class="flex justify-center mt-3">
+        <div class="brutal-input px-3 py-1 text-xs">
+          <span class="text-neon-cyan">STATUS:</span>
+          <span class="ml-2 text-mutant font-bold">OPERATIONAL</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-6 space-y-6">
+    <!-- Habitat Section -->
+    <section class="brutal-card-cyan p-6" aria-labelledby="habitat-title">
+      <header class="flex items-center justify-between mb-4">
+        <h2 id="habitat-title" class="text-xl font-mono font-black text-white uppercase tracking-wider">🌿 HABITAT CHAMBER</h2>
+        <div class="flex items-center space-x-2">
+          <span class="w-3 h-3 bg-mutant border-2 border-white" aria-hidden="true"></span>
+          <span class="text-sm text-white font-bold uppercase">LIVE ECOSYSTEM</span>
+        </div>
+      </header>
+      
+      <div class="bg-gray-800 border-4 border-white p-4">
+        <div id="habitat-3d-container" class="w-full h-64 md:h-80 bg-black relative">
+          <!-- Three.js will render here -->
+        </div>
+        
+        <!-- Habitat Controls -->
+        <nav class="flex justify-between items-center mt-4" aria-label="Habitat controls">
+          <div class="brutal-input px-3 py-2">
+            <span class="text-xs font-bold uppercase">Environment: </span>
+            <span class="text-neon-cyan text-xs font-bold">RESPONSIVE</span>
+          </div>
+          <button id="reset-view" class="brutal-button-cyan px-3 py-2 text-xs font-mono" aria-label="Reset habitat view">
+            RESET VIEW
+          </button>
+        </nav>
+      </div>
+    </section>
+
+    <!-- Breeding Lab -->
+    <section class="brutal-card p-6" aria-labelledby="lab-title">
+      <header class="mb-6">
+        <h2 id="lab-title" class="text-xl font-mono font-black text-white flex items-center uppercase tracking-wider">
+          🧬 GENETIC LABORATORY
+          <span class="ml-3 brutal-tag px-2 py-1" aria-label="Classification level">CLASSIFIED</span>
+        </h2>
+      </header>
+
+      <!-- DNA Helix Manipulation -->
+      <article class="mutation-chamber p-4 mb-6" aria-labelledby="dna-title">
+        <header>
+          <h3 id="dna-title" class="font-mono font-black text-neon-yellow mb-4 flex items-center uppercase tracking-wider">
+            🧬 DNA HELIX MANIPULATOR
+            <span class="ml-3 brutal-tag bg-neon-yellow text-black border-black px-2 py-1" aria-label="System status">ACTIVE</span>
+          </h3>
+        </header>
+        
+        <div class="grid md:grid-cols-3 gap-6">
+          <!-- Parent A DNA -->
+          <section aria-labelledby="parent-a-title">
+            <header class="text-center">
+              <h4 id="parent-a-title" class="text-sm text-neon-pink mb-3 font-mono font-black uppercase tracking-wider">ALPHA GENOME</h4>
+            </header>
+            <div class="helix-container p-2">
+              <canvas id="parent-a-helix" class="w-full h-64 bg-black cursor-pointer" 
+                      width="200" height="256" aria-label="Alpha genome helix - click and drag to manipulate"></canvas>
+            </div>
+            <p class="mt-2 text-xs text-white font-bold uppercase text-center">CLICK & DRAG GENE SEGMENTS</p>
+    </section>
+          
+          <!-- Mutation Chamber -->
+          <section aria-labelledby="mutation-title">
+            <header class="text-center">
+              <h4 id="mutation-title" class="text-sm text-neon-yellow mb-3 font-mono font-black uppercase tracking-wider">MUTATION CHAMBER</h4>
+            </header>
+            <div class="bg-black border-4 border-neon-yellow h-64 relative overflow-hidden" role="meter" aria-valuenow="15" aria-valuemin="0" aria-valuemax="100" aria-label="Mutation probability">
+              <!-- Mutation particles -->
+              <div id="mutation-particles" class="absolute inset-0" aria-hidden="true"></div>
+              
+              <!-- Central mutation display -->
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <div class="text-3xl font-mono font-black text-neon-yellow mb-2" id="mutation-percentage" aria-live="polite">15%</div>
+                <div class="text-xs text-white mb-4 font-bold uppercase tracking-wider">MUTATION PROBABILITY</div>
+                
+                <!-- DNA Stability Indicator -->
+                <div class="brutal-progress w-32 h-4 overflow-hidden" role="progressbar" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100" aria-label="DNA stability">
+                  <div id="stability-bar" class="brutal-progress-fill h-full transition-all duration-500" style="width: 85%"></div>
+        </div>
+                <div class="text-xs text-white mt-1 font-bold uppercase">DNA STABILITY</div>
+        </div>
+              
+              <!-- Floating gene indicators -->
+              <div id="floating-genes" class="absolute inset-0" aria-hidden="true"></div>
+        </div>
+          </section>
+          
+          <!-- Parent B DNA -->
+          <section aria-labelledby="parent-b-title">
+            <header class="text-center">
+              <h4 id="parent-b-title" class="text-sm text-neon-cyan mb-3 font-mono font-black uppercase tracking-wider">BETA GENOME</h4>
+            </header>
+            <div class="helix-container p-2">
+              <canvas id="parent-b-helix" class="w-full h-64 bg-black cursor-pointer" 
+                      width="200" height="256" aria-label="Beta genome helix - click and drag to manipulate"></canvas>
+      </div>
+            <p class="mt-2 text-xs text-white font-bold uppercase text-center">CLICK & DRAG GENE SEGMENTS</p>
+    </section>
+        </div>
+        
+        <!-- DNA Manipulation Controls -->
+        <nav class="mt-6 flex justify-center space-x-4" aria-label="DNA manipulation controls">
+          <button id="randomize-dna" class="brutal-button bg-mutant text-black border-black px-4 py-2 font-mono" aria-label="Generate random DNA sequences">
+            🧪 RANDOMIZE DNA
+          </button>
+          <button id="stabilize-dna" class="brutal-button-cyan px-4 py-2 font-mono" aria-label="Stabilize DNA helix structure">
+            ⚡ STABILIZE HELIX
+          </button>
+          <button id="amplify-mutation" class="brutal-button-pink px-4 py-2 font-mono" aria-label="Increase mutation probability">
+            💥 AMPLIFY MUTATION
+          </button>
+        </nav>
+      </article>
+
+      <!-- Offspring Preview -->
+      <article class="brutal-preview p-4" aria-labelledby="offspring-title">
+        <header class="flex items-center justify-between mb-4">
+          <h3 id="offspring-title" class="font-mono font-black text-neon-yellow uppercase tracking-wider">🔬 OFFSPRING PREVIEW</h3>
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-white font-bold uppercase">Generation:</span>
+              <span id="generation-count" class="text-neon-cyan font-black font-mono" aria-live="polite">1</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-white font-bold uppercase">Mutation Risk:</span>
+              <span id="mutation-chance" class="text-danger font-black font-mono" aria-live="polite">15%</span>
+            </div>
+          </div>
+        </header>
+        
+        <!-- Genetic Traits Preview -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4" role="group" aria-label="Predicted offspring traits">
+          <div id="trait-preview-0" class="bg-black border-2 border-white p-3 text-center">
+            <div class="text-lg mb-1" aria-hidden="true">🎨</div>
+            <div class="text-xs text-gray-400 mb-1 font-bold uppercase">Body Color</div>
+            <div class="w-4 h-4 border-2 border-white mx-auto mb-1" id="color-preview" aria-label="Body color preview"></div>
+            <div class="text-xs font-mono font-bold" id="color-label">CRIMSON</div>
+          </div>
+          <div id="trait-preview-1" class="bg-black border-2 border-white p-3 text-center">
+            <div class="text-lg mb-1" aria-hidden="true">🦾</div>
+            <div class="text-xs text-gray-400 mb-1 font-bold uppercase">Appendages</div>
+            <div class="text-sm font-mono font-bold" id="appendage-count">4</div>
+            <div class="text-xs font-bold uppercase" id="appendage-label">QUADRUPED</div>
+          </div>
+          <div id="trait-preview-2" class="bg-black border-2 border-white p-3 text-center">
+            <div class="text-lg mb-1" aria-hidden="true">👁️</div>
+            <div class="text-xs text-gray-400 mb-1 font-bold uppercase">Eyes</div>
+            <div class="text-sm font-mono font-bold" id="eye-type">L</div>
+            <div class="text-xs font-bold uppercase" id="eye-label">ENHANCED</div>
+          </div>
+          <div id="trait-preview-3" class="bg-black border-2 border-white p-3 text-center">
+            <div class="text-lg mb-1" aria-hidden="true">🕊️</div>
+            <div class="text-xs text-gray-400 mb-1 font-bold uppercase">Flight</div>
+            <div class="text-sm font-mono font-bold" id="flight-type">F</div>
+            <div class="text-xs font-bold uppercase" id="flight-label">FEATHERED</div>
+          </div>
+          <div id="trait-preview-4" class="bg-black border-2 border-white p-3 text-center">
+            <div class="text-lg mb-1" aria-hidden="true">✨</div>
+            <div class="text-xs text-gray-400 mb-1 font-bold uppercase">Special</div>
+            <div class="text-sm font-mono font-bold" id="special-type">T</div>
+            <div class="text-xs font-bold uppercase" id="special-label">TAIL</div>
+          </div>
+        </div>
+        
+        <button id="breed-button" class="w-full brutal-button-pink text-white font-mono font-black py-3 text-lg tracking-wider" aria-label="Begin creature breeding process">
+          INITIATE BREEDING SEQUENCE
+        </button>
+      </article>
+    </section>
+
+    <!-- Lifecycle & Lineage -->
+    <section class="brutal-card-yellow p-6" aria-labelledby="lifecycle-title" id="lifecycle-section" style="display: none;">
+      <header class="mb-6">
+        <h2 id="lifecycle-title" class="text-xl font-mono font-black text-white flex items-center uppercase tracking-wider">
+          🕰️ LIFECYCLE MONITOR
+        </h2>
+      </header>
+
+      <!-- Lifecycle Stages -->
+      <article aria-labelledby="development-title">
+        <header class="mb-3">
+          <h3 id="development-title" class="font-bold text-white font-mono uppercase tracking-wider">CURRENT SPECIMEN DEVELOPMENT</h3>
+        </header>
+        <div id="lifecycle-stages" class="flex justify-between items-center space-x-2 cursor-pointer" role="tablist" aria-label="Creature lifecycle stages - click to evolve">
+          <!-- Lifecycle stages will be inserted here -->
+        </div>
+      </article>
+
+      <!-- Lineage Tree -->
+      <article aria-labelledby="lineage-title">
+        <header class="mb-3 flex items-center justify-between">
+          <h3 id="lineage-title" class="font-bold text-white font-mono uppercase tracking-wider">GENETIC LINEAGE</h3>
+          <button id="view-latest" class="brutal-button-cyan px-3 py-1 text-xs font-mono" style="display: none;" aria-label="View latest generation">
+            LATEST
+          </button>
+        </header>
+        <div id="lineage-tree" class="space-y-2 max-h-40 overflow-y-auto" role="log" aria-label="Genetic lineage history">
+          <!-- Lineage entries will be inserted here -->
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    // === DATA STRUCTURES ===
+    const CREATURE_ARCHETYPES = [
+      {
+        name: 'Crystalline Serpent',
+        baseColor: 0x8b5cf6,
+        bodyType: 'elongated',
+        specialFeatures: ['scales', 'crystals'],
+        defaultAppendages: 0
+      },
+      {
+        name: 'Plasma Beast',
+        baseColor: 0xff0080,
+        bodyType: 'quadruped',
+        specialFeatures: ['energy_field', 'spines'],
+        defaultAppendages: 4
+      },
+      {
+        name: 'Void Wraith',
+        baseColor: 0x6366f1,
+        bodyType: 'ethereal',
+        specialFeatures: ['translucent', 'floating'],
+        defaultAppendages: 2
+      },
+      {
+        name: 'Biomech Hunter',
+        baseColor: 0x00fff7,
+        bodyType: 'angular',
+        specialFeatures: ['metallic', 'joints'],
+        defaultAppendages: 6
+      },
+      {
+        name: 'Swarm Drone',
+        baseColor: 0xfde047,
+        bodyType: 'compact',
+        specialFeatures: ['chitinous', 'compound_eyes'],
+        defaultAppendages: 8
+      }
+    ];
+
+    const TRAITS = [
+      {
+        name: 'Body Color',
+        icon: '🎨',
+        alleles: [
+          { code: 'R', label: 'Crimson', color: '#cc0000', rarity: 'common' },
+          { code: 'B', label: 'Azure', color: '#006666', rarity: 'common' },
+          { code: 'G', label: 'Emerald', color: '#004d00', rarity: 'rare' },
+          { code: 'Y', label: 'Golden', color: '#666600', rarity: 'legendary' },
+          { code: 'P', label: 'Plasma', color: '#4d004d', rarity: 'rare' },
+          { code: 'C', label: 'Chrome', color: '#4d4d4d', rarity: 'legendary' },
+        ]
+      },
+      {
+        name: 'Appendages',
+        icon: '🦾',
+        alleles: [
+          { code: '0', label: 'Serpentine', color: '#4d004d', rarity: 'rare' },
+          { code: '2', label: 'Bipedal', color: '#4d4d00', rarity: 'common' },
+          { code: '4', label: 'Quadruped', color: '#004d4d', rarity: 'common' },
+          { code: '6', label: 'Hexapod', color: '#4d2600', rarity: 'rare' },
+          { code: '8', label: 'Octopod', color: '#660000', rarity: 'legendary' },
+        ]
+      },
+      {
+        name: 'Ocular System',
+        icon: '👁️',
+        alleles: [
+          { code: 'S', label: 'Standard', color: '#333333', rarity: 'common' },
+          { code: 'L', label: 'Enhanced', color: '#666600', rarity: 'rare' },
+          { code: 'X', label: 'Compound', color: '#660000', rarity: 'legendary' },
+          { code: 'V', label: 'Void Eyes', color: '#330066', rarity: 'legendary' },
+        ]
+      },
+      {
+        name: 'Flight System',
+        icon: '🕊️',
+        alleles: [
+          { code: 'N', label: 'Terrestrial', color: '#333333', rarity: 'common' },
+          { code: 'F', label: 'Feathered', color: '#003366', rarity: 'rare' },
+          { code: 'M', label: 'Membrane', color: '#330033', rarity: 'legendary' },
+          { code: 'E', label: 'Energy', color: '#000066', rarity: 'legendary' },
+        ]
+      },
+      {
+        name: 'Special Feature',
+        icon: '✨',
+        alleles: [
+          { code: '-', label: 'Standard', color: '#333333', rarity: 'common' },
+          { code: 'T', label: 'Crystalline Tail', color: '#004d4d', rarity: 'rare' },
+          { code: 'H', label: 'Plasma Horns', color: '#4d004d', rarity: 'rare' },
+          { code: 'S', label: 'Bio Spines', color: '#4d2600', rarity: 'legendary' },
+          { code: 'A', label: 'Armor Plating', color: '#4d4d4d', rarity: 'legendary' },
+        ]
+      }
+    ];
+
+    const LIFECYCLE = [
+      { name: "Embryo", icon: "🥚", color: "#ffe600", scale: 0.2 },
+      { name: "Larvae", icon: "🐛", color: "#00fff7", scale: 0.4 },
+      { name: "Juvenile", icon: "🦎", color: "#ff0080", scale: 0.7 },
+      { name: "Adult", icon: "🐉", color: "#00ff04", scale: 1.0 },
+      { name: "Ancient", icon: "👑", color: "#8b5cf6", scale: 1.3 }
+    ];
+
+    // === STATE MANAGEMENT ===
+    let gameState = {
+      parentA: generateRandomCreature(),
+      parentB: generateRandomCreature(),
+      offspring: null,
+      lineage: [],
+      currentStage: 0,
+      viewRotation: { x: 0, y: 0 },
+      gyroEnabled: false,
+      dnaManipulation: {
+        parentA: { twist: 0, segments: [] },
+        parentB: { twist: 0, segments: [] },
+        mutationAmplifier: 1.0,
+        stability: 85
+      },
+      selectedCreatureIndex: -1, // -1 means showing current/latest creature
+      hasCreatedCreature: false
+    };
+
+    // === LOCALSTORAGE FUNCTIONS ===
+    function saveCreatureToStorage(creature) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('xenomorphCreatures') || '[]');
+        saved.push({
+          ...creature,
+          timestamp: Date.now(),
+          id: creature.id || Date.now()
+        });
+        
+        // Keep only last 20 creatures to avoid storage bloat
+        if (saved.length > 20) {
+          saved.splice(0, saved.length - 20);
+        }
+        
+        localStorage.setItem('xenomorphCreatures', JSON.stringify(saved));
+        console.log('Saved creature to storage:', creature.generation);
+      } catch (error) {
+        console.error('Failed to save creature:', error);
+      }
+    }
+
+    function loadCreaturesFromStorage() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('xenomorphCreatures') || '[]');
+        return saved;
+      } catch (error) {
+        console.error('Failed to load creatures:', error);
+        return [];
+      }
+    }
+
+    function getCurrentDisplayCreature() {
+      if (gameState.selectedCreatureIndex >= 0 && gameState.selectedCreatureIndex < gameState.lineage.length) {
+        return gameState.lineage[gameState.selectedCreatureIndex];
+      }
+      
+      // Default to latest creature or parentB if no lineage
+      return gameState.lineage.length > 0 ? 
+        gameState.lineage[gameState.lineage.length - 1] : 
+        gameState.parentB;
+    }
+
+    // === UTILITY FUNCTIONS ===
+    function generateRandomCreature() {
+      const archetype = randomChoice(CREATURE_ARCHETYPES);
+      return {
+        id: Date.now() + Math.random(),
+        traits: TRAITS.map(trait => randomChoice(trait.alleles).code),
+        stage: 0,
+        parents: null,
+        generation: 0,
+        archetype: archetype,
+        // Override some traits based on archetype
+        baseColor: archetype.baseColor,
+        bodyType: archetype.bodyType
+      };
+    }
+
+    function randomChoice(array) {
+      return array[Math.floor(Math.random() * array.length)];
+    }
+
+    function getTraitInfo(traitIndex, code) {
+      return TRAITS[traitIndex].alleles.find(a => a.code === code) || TRAITS[traitIndex].alleles[0];
+    }
+
+    function calculateMutationChance() {
+      let baseChance = 15;
+      
+      // Factor in DNA manipulation
+      const twistFactor = (Math.abs(gameState.dnaManipulation.parentA.twist) + Math.abs(gameState.dnaManipulation.parentB.twist)) * 5;
+      const stabilityFactor = (100 - gameState.dnaManipulation.stability) * 0.3;
+      const amplifierFactor = (gameState.dnaManipulation.mutationAmplifier - 1) * 20;
+      
+      // Calculate final mutation chance
+      const mutationChance = Math.min(75, baseChance + twistFactor + stabilityFactor + amplifierFactor);
+      
+      return Math.round(mutationChance);
+    }
+
+    // === DNA HELIX RENDERING ===
+    function initializeDNAHelix() {
+      // Initialize DNA segment positions
+      gameState.dnaManipulation.parentA.segments = TRAITS.map((trait, i) => ({
+        trait: i,
+        y: 40 + i * 40,
+        offset: 0,
+        color: getTraitInfo(i, gameState.parentA.traits[i]).color
+      }));
+      
+      gameState.dnaManipulation.parentB.segments = TRAITS.map((trait, i) => ({
+        trait: i,
+        y: 40 + i * 40,
+        offset: 0,
+        color: getTraitInfo(i, gameState.parentB.traits[i]).color
+      }));
+    }
+
+    function drawDNAHelix(canvasId, parentType) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext('2d');
+      const dnaData = gameState.dnaManipulation[parentType];
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw helix backbone
+      const centerX = canvas.width / 2;
+      const time = Date.now() * 0.002 + dnaData.twist;
+      
+      // Draw the double helix structure
+      for (let i = 0; i < 250; i += 2) {
+        const y = i;
+        const angle1 = (y * 0.05) + time;
+        const angle2 = angle1 + Math.PI;
+        
+        const x1 = centerX + Math.cos(angle1) * 30;
+        const x2 = centerX + Math.cos(angle2) * 30;
+        
+        // Draw backbone strands
+        ctx.beginPath();
+        ctx.arc(x1, y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = parentType === 'parentA' ? '#ff0080' : '#00fff7';
+        ctx.globalAlpha = 0.6;
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(x2, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        
+        // Draw connecting base pairs every few pixels
+        if (i % 8 === 0) {
+          ctx.beginPath();
+          ctx.moveTo(x1, y);
+          ctx.lineTo(x2, y);
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+      
+      // Draw gene segments
+      dnaData.segments.forEach((segment, index) => {
+        const y = segment.y + segment.offset;
+        const angle = (y * 0.05) + time;
+        const x = centerX + Math.cos(angle) * 35;
+        
+        // Gene segment circle
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = segment.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Gene label
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.fillText(gameState[parentType].traits[index], x, y + 3);
+      });
+    }
+
+    function setupDNAInteraction(canvasId, parentType) {
+      const canvas = document.getElementById(canvasId);
+      let isDragging = false;
+      let dragSegment = null;
+      
+      canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if clicking on a gene segment
+        const dnaData = gameState.dnaManipulation[parentType];
+        const centerX = canvas.width / 2;
+        const time = Date.now() * 0.002 + dnaData.twist;
+        
+        dnaData.segments.forEach((segment, index) => {
+          const segY = segment.y + segment.offset;
+          const angle = (segY * 0.05) + time;
+          const segX = centerX + Math.cos(angle) * 35;
+          
+          const distance = Math.sqrt((x - segX) ** 2 + (y - segY) ** 2);
+          if (distance < 12) {
+            isDragging = true;
+            dragSegment = index;
+          }
+        });
+      });
+      
+      canvas.addEventListener('mousemove', (e) => {
+        if (isDragging && dragSegment !== null) {
+          const rect = canvas.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+          
+          // Update segment position and DNA twist
+          const dnaData = gameState.dnaManipulation[parentType];
+          const deltaY = y - dnaData.segments[dragSegment].y;
+          dnaData.segments[dragSegment].offset = Math.max(-20, Math.min(20, deltaY));
+          
+          // Update DNA twist based on manipulation
+          dnaData.twist += deltaY * 0.01;
+          
+          // Decrease stability
+          gameState.dnaManipulation.stability = Math.max(10, gameState.dnaManipulation.stability - 1);
+          
+          updateMutationChamber();
+          updateOffspringPreview();
+        }
+      });
+      
+      canvas.addEventListener('mouseup', () => {
+        isDragging = false;
+        dragSegment = null;
+      });
+      
+      // Touch events for mobile
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+      });
+      
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY
+        });
+        canvas.dispatchEvent(mouseEvent);
+      });
+      
+      canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        const mouseEvent = new MouseEvent('mouseup', {});
+        canvas.dispatchEvent(mouseEvent);
+      });
+    }
+
+    // === MUTATION CHAMBER EFFECTS ===
+    function updateMutationChamber() {
+      const mutationChance = calculateMutationChance();
+      const stability = gameState.dnaManipulation.stability;
+      
+      // Update mutation percentage display
+      document.getElementById('mutation-percentage').textContent = mutationChance + '%';
+      document.getElementById('mutation-chance').textContent = mutationChance + '%';
+      
+      // Update stability bar
+      const stabilityBar = document.getElementById('stability-bar');
+      stabilityBar.style.width = stability + '%';
+      
+      // Update stability bar color based on stability
+      if (stability > 70) {
+        stabilityBar.className = 'h-full bg-gradient-to-r from-neon-cyan to-mutant transition-all duration-500';
+      } else if (stability > 40) {
+        stabilityBar.className = 'h-full bg-gradient-to-r from-neon-yellow to-neon-pink transition-all duration-500';
+      } else {
+        stabilityBar.className = 'h-full bg-gradient-to-r from-danger to-purple-600 transition-all duration-500';
+      }
+      
+      // Create floating mutation particles
+      createMutationParticles(mutationChance);
+    }
+
+    function createMutationParticles(intensity) {
+      const container = document.getElementById('mutation-particles');
+      
+      // Clear existing particles
+      container.innerHTML = '';
+      
+      // Create new particles based on mutation intensity
+      const particleCount = Math.floor(intensity / 5);
+      
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'absolute w-1 h-1 rounded-full';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        particle.style.backgroundColor = ['#ff0080', '#00fff7', '#ffe600', '#00ff04'][Math.floor(Math.random() * 4)];
+        particle.style.animation = `float ${2 + Math.random() * 3}s infinite ease-in-out`;
+        particle.style.animationDelay = Math.random() * 2 + 's';
+        
+        container.appendChild(particle);
+      }
+      
+      // Create floating gene symbols
+      const geneContainer = document.getElementById('floating-genes');
+      geneContainer.innerHTML = '';
+      
+      if (intensity > 30) {
+        const symbols = ['🧬', '⚡', '💫', '🔬'];
+        symbols.forEach((symbol, i) => {
+          const gene = document.createElement('div');
+          gene.className = 'absolute text-lg opacity-50 animate-bounce';
+          gene.style.left = (20 + i * 20) + '%';
+          gene.style.top = (30 + (i % 2) * 40) + '%';
+          gene.style.animationDelay = i * 0.5 + 's';
+          gene.textContent = symbol;
+          geneContainer.appendChild(gene);
+        });
+      }
+    }
+
+    // Add floating animation keyframes
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+        50% { transform: translateY(-10px) rotate(180deg); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // === OFFSPRING PREVIEW ===
+    function updateOffspringPreview() {
+      if (!gameState.offspring) {
+        gameState.offspring = calculateOffspring();
+      }
+
+      // Update trait previews
+      TRAITS.forEach((trait, i) => {
+        const allele = getTraitInfo(i, gameState.offspring.traits[i]);
+        
+        switch (i) {
+          case 0: // Body Color
+            document.getElementById('color-preview').style.backgroundColor = allele.color;
+            document.getElementById('color-label').textContent = allele.label;
+            break;
+          case 1: // Appendages
+            document.getElementById('appendage-count').textContent = allele.code;
+            document.getElementById('appendage-label').textContent = allele.label;
+            break;
+          case 2: // Eyes
+            document.getElementById('eye-type').textContent = allele.code;
+            document.getElementById('eye-label').textContent = allele.label;
+            break;
+          case 3: // Flight
+            document.getElementById('flight-type').textContent = allele.code;
+            document.getElementById('flight-label').textContent = allele.label;
+            break;
+          case 4: // Special
+            document.getElementById('special-type').textContent = allele.code;
+            document.getElementById('special-label').textContent = allele.label;
+            break;
+        }
+        
+        // Add mutation indicator
+        const preview = document.getElementById(`trait-preview-${i}`);
+        if (gameState.offspring.mutations && gameState.offspring.mutations[i]) {
+          preview.classList.add('ring-2', 'ring-mutant', 'animate-pulse');
+        } else {
+          preview.classList.remove('ring-2', 'ring-mutant', 'animate-pulse');
+        }
+      });
+      
+      // Update generation count
+      document.getElementById('generation-count').textContent = gameState.offspring.generation;
+    }
+
+    function calculateOffspring() {
+      const offspring = {
+        id: Date.now() + Math.random(),
+        traits: [],
+        mutations: [],
+        stage: 0,
+        parents: [gameState.parentA.id, gameState.parentB.id],
+        generation: Math.max(gameState.parentA.generation, gameState.parentB.generation) + 1
+      };
+
+      const mutationChance = calculateMutationChance() / 100;
+
+      for (let i = 0; i < TRAITS.length; i++) {
+        if (Math.random() < mutationChance) {
+          // Mutation occurred
+          const availableAlleles = TRAITS[i].alleles.filter(a => 
+            a.code !== gameState.parentA.traits[i] && 
+            a.code !== gameState.parentB.traits[i]
+          );
+          offspring.traits[i] = availableAlleles.length > 0 ? 
+            randomChoice(availableAlleles).code : 
+            randomChoice(TRAITS[i].alleles).code;
+          offspring.mutations[i] = true;
+        } else {
+          // Inherit from random parent
+          offspring.traits[i] = Math.random() < 0.5 ? 
+            gameState.parentA.traits[i] : 
+            gameState.parentB.traits[i];
+          offspring.mutations[i] = false;
+        }
+      }
+
+      return offspring;
+    }
+
+    // === ENHANCED LIFECYCLE INTERACTION ===
+    function renderLifecycle() {
+      // Only show lifecycle section if a creature has been created
+      const lifecycleSection = document.getElementById('lifecycle-section');
+      if (!gameState.hasCreatedCreature) {
+        lifecycleSection.style.display = 'none';
+        return;
+      } else {
+        lifecycleSection.style.display = 'block';
+      }
+      
+      const container = document.getElementById('lifecycle-stages');
+      const currentCreature = getCurrentDisplayCreature();
+
+      container.innerHTML = LIFECYCLE.map((stage, i) => `
+        <div class="lifecycle-stage-container" data-stage="${i}" style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          background-color: #1a1a1a;
+          border: 2px solid #444;
+          padding: 12px;
+          margin: 4px;
+          min-height: 120px;
+          min-width: 90px;
+          flex: 1;
+          transition: all 0.3s ease;
+        ">
+          <div style="
+            width: 48px;
+            height: 48px;
+            border: 2px solid #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            ${i === currentCreature.stage ? 'border-color: #00ffff; background: #006666; color: white;' : ''}
+            ${i < currentCreature.stage ? 'border-color: #00cccc; background: #004d4d; color: #ccffff;' : ''}
+          ">
+            ${stage.icon}
+          </div>
+          <span style="
+            font-size: 10px;
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: white;
+            margin-top: 8px;
+          ">${stage.name}</span>
+          <div style="
+            width: 100%;
+            height: 12px;
+            margin-top: 8px;
+            border: 2px solid ${i <= currentCreature.stage ? '#000' : '#fff'};
+            background-color: ${i <= currentCreature.stage ? '#fff' : '#666'};
+            transition: all 0.5s ease;
+          "></div>
+        </div>
+      `).join('');
+      
+      // Simplified click handlers with better debugging
+      setTimeout(() => {
+        container.querySelectorAll('.lifecycle-stage-container').forEach((stageDiv, index) => {
+          console.log(`Setting up stage ${index} (${LIFECYCLE[index].name}) click handler`);
+          
+          // Remove any existing handlers
+          stageDiv.replaceWith(stageDiv.cloneNode(true));
+          const newStageDiv = container.querySelectorAll('.lifecycle-stage-container')[index];
+          
+          newStageDiv.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetStage = parseInt(newStageDiv.dataset.stage);
+            console.log(`CLICKED: Stage ${targetStage} (${LIFECYCLE[targetStage].name})`);
+            
+            evolveCreature(targetStage);
+          });
+          
+          newStageDiv.addEventListener('mouseenter', () => {
+            newStageDiv.style.transform = 'scale(1.05)';
+            newStageDiv.style.backgroundColor = '#333';
+          });
+          
+          newStageDiv.addEventListener('mouseleave', () => {
+            newStageDiv.style.transform = 'scale(1.0)';
+            newStageDiv.style.backgroundColor = '#1a1a1a';
+          });
+        });
+      }, 100);
+    }
+
+    function evolveCreature(targetStage) {
+      console.log('=== EVOLVE CREATURE CALLED ===');
+      console.log('Target stage:', targetStage, '(' + LIFECYCLE[targetStage].name + ')');
+      
+      if (!gameState.hasCreatedCreature) {
+        console.log('No creatures created yet, cannot evolve');
+        return;
+      }
+      
+      let currentCreature;
+      let creatureIndex;
+      
+      // Get the creature we're currently viewing/evolving
+      if (gameState.selectedCreatureIndex >= 0) {
+        currentCreature = gameState.lineage[gameState.selectedCreatureIndex];
+        creatureIndex = gameState.selectedCreatureIndex;
+      } else {
+        // Default to latest creature
+        currentCreature = gameState.lineage[gameState.lineage.length - 1];
+        creatureIndex = gameState.lineage.length - 1;
+      }
+      
+      console.log('Evolving creature at index:', creatureIndex, currentCreature);
+      
+      // Allow evolution to any stage (forward or backward)
+      if (targetStage >= 0 && targetStage < LIFECYCLE.length) {
+        const previousStage = currentCreature.stage;
+        currentCreature.stage = targetStage;
+        
+        // Update the creature in the lineage array
+        gameState.lineage[creatureIndex] = currentCreature;
+        
+        // Save updated creature to localStorage
+        saveCreatureToStorage(currentCreature);
+        
+        console.log(`Evolution: ${LIFECYCLE[previousStage].name} (${previousStage}) -> ${LIFECYCLE[targetStage].name} (${targetStage})`);
+        
+        // Force update 3D creature to reflect new stage
+        if (scene) {
+          console.log('About to call create3DCreature for stage:', targetStage);
+          try {
+            create3DCreature();
+            console.log('Successfully created 3D creature for stage:', targetStage);
+          } catch (error) {
+            console.error('Error creating 3D creature:', error);
+          }
+        }
+        
+        // Update lifecycle display
+        updateLifecycleDisplay(currentCreature);
+        renderLineage(); // Update lineage to show changes
+        
+        // Add evolution effect
+        if (creature3D && creature3D.children.length > 0) {
+          console.log('Adding evolution effect');
+          const targetScale = LIFECYCLE[targetStage].scale || 1.0;
+          
+          // Animate to larger scale briefly, then back to normal
+          creature3D.scale.setScalar(targetScale * 1.3);
+          
+          setTimeout(() => {
+            if (creature3D) {
+              creature3D.scale.setScalar(targetScale);
+            }
+          }, 300);
+          
+          // Add particle effect
+          createEvolutionParticles();
+        }
+        
+        console.log('Evolution complete. New stage:', currentCreature.stage);
+      } else {
+        console.error('Invalid target stage:', targetStage);
+      }
+      
+      console.log('=== EVOLVE CREATURE COMPLETE ===');
+    }
+    
+    // New function to update lifecycle display without recreating handlers
+    function updateLifecycleDisplay(currentCreature) {
+      const container = document.getElementById('lifecycle-stages');
+      const stageContainers = container.querySelectorAll('.lifecycle-stage-container');
+      
+      stageContainers.forEach((stageDiv, i) => {
+        const icon = stageDiv.querySelector('div:first-child');
+        const progressBar = stageDiv.querySelector('div:last-child');
+        
+        // Update icon styling
+        if (i === currentCreature.stage) {
+          icon.style.borderColor = '#00ffff';
+          icon.style.background = '#006666';
+          icon.style.color = 'white';
+        } else if (i < currentCreature.stage) {
+          icon.style.borderColor = '#00cccc';
+          icon.style.background = '#004d4d';
+          icon.style.color = '#ccffff';
+        } else {
+          icon.style.borderColor = '#666';
+          icon.style.background = '';
+          icon.style.color = '';
+        }
+        
+        // Update progress bar
+        progressBar.style.borderColor = i <= currentCreature.stage ? '#000' : '#fff';
+        progressBar.style.backgroundColor = i <= currentCreature.stage ? '#fff' : '#666';
+      });
+    }
+
+    function createEvolutionParticles() {
+      if (!creature3D) return;
+      
+      const particleCount = 20;
+      const particles = [];
+      
+      for (let i = 0; i < particleCount; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.02, 4, 4);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+          color: Math.random() > 0.5 ? 0x00fff7 : 0xff0080,
+          transparent: true,
+          opacity: 0.8
+        });
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        
+        particle.position.copy(creature3D.position);
+        particle.position.x += (Math.random() - 0.5) * 2;
+        particle.position.y += Math.random() * 2;
+        particle.position.z += (Math.random() - 0.5) * 2;
+        
+        scene.add(particle);
+        particles.push(particle);
+      }
+      
+      // Remove particles after animation
+      setTimeout(() => {
+        particles.forEach(particle => {
+          scene.remove(particle);
+        });
+      }, 1000);
+    }
+
+    function renderLineage() {
+      const container = document.getElementById('lineage-tree');
+      
+      if (gameState.lineage.length === 0) {
+        container.innerHTML = '<div class="text-center text-white py-4 font-mono font-bold uppercase tracking-wider">NO LINEAGE DATA AVAILABLE</div>';
+        return;
+      }
+      
+      container.innerHTML = gameState.lineage.slice(-8).reverse().map((creature, reverseIndex) => {
+        const actualIndex = gameState.lineage.length - 1 - reverseIndex;
+        const isSelected = gameState.selectedCreatureIndex === actualIndex || 
+          (gameState.selectedCreatureIndex === -1 && reverseIndex === 0);
+        
+        return `
+          <div class="brutal-lineage p-3 cursor-pointer transition-all duration-200 ${isSelected ? 'ring-2 ring-neon-cyan bg-opacity-20 bg-neon-cyan' : 'hover:bg-gray-700'}" 
+               data-creature-index="${actualIndex}"
+               title="Click to view Generation ${creature.generation}">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <span class="font-mono font-black text-neon-cyan uppercase tracking-wider">
+                  GEN ${creature.generation} ${isSelected ? '◄ VIEWING' : ''}
+                </span>
+                <div class="flex space-x-1">
+                  ${creature.traits.map((code, ti) => {
+                    const allele = getTraitInfo(ti, code);
+                    return `<div class="w-3 h-3 border-2 border-white" style="background-color: ${allele.color}" title="${allele.label}"></div>`;
+                  }).join('')}
+                </div>
+              </div>
+              <span class="text-sm text-white font-bold uppercase">${LIFECYCLE[creature.stage].name}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Add click handlers to lineage entries
+      container.querySelectorAll('[data-creature-index]').forEach(entry => {
+        entry.addEventListener('click', (e) => {
+          const index = parseInt(e.currentTarget.dataset.creatureIndex);
+          console.log('Selected creature index:', index);
+          gameState.selectedCreatureIndex = index;
+          
+          // Update 3D display and UI
+          if (scene) {
+            create3DCreature();
+          }
+          renderLineage(); // Re-render to show selection
+          renderLifecycle(); // Update lifecycle for selected creature
+        });
+      });
+      
+      // Show/hide Latest button
+      const latestButton = document.getElementById('view-latest');
+      if (gameState.lineage.length > 1 && gameState.selectedCreatureIndex !== -1) {
+        latestButton.style.display = 'block';
+      } else {
+        latestButton.style.display = 'none';
+      }
+    }
+
+    // === 3D HABITAT RENDERING WITH THREE.JS ===
+    let scene, camera, renderer, creature3D, environment;
+    let animationId;
+
+    function initialize3DHabitat() {
+      const container = document.getElementById('habitat-3d-container');
+      
+      // Scene setup
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x2a2a2a);
+      
+      // Camera setup
+      camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.set(0, 2, 5);
+      
+      // Renderer setup
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+      
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+      scene.add(ambientLight);
+      
+      const directionalLight = new THREE.DirectionalLight(0x00fff7, 1);
+      directionalLight.position.set(5, 10, 5);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 1024;
+      directionalLight.shadow.mapSize.height = 1024;
+      scene.add(directionalLight);
+      
+      const pointLight = new THREE.PointLight(0xff0080, 0.5, 100);
+      pointLight.position.set(-5, 5, -5);
+      scene.add(pointLight);
+      
+      create3DEnvironment();
+      create3DCreature();
+      
+      // Auto-start render loop
+      animate3D();
+      
+      // Handle window resize
+      window.addEventListener('resize', onWindowResize);
+      
+      // Touch controls for mobile
+      setupTouchControls();
+    }
+
+    function create3DEnvironment() {
+      // Ground plane - lighter color for contrast
+      const groundGeometry = new THREE.PlaneGeometry(20, 20);
+      const groundMaterial = new THREE.MeshLambertMaterial({ 
+        color: 0x4a4a4a,
+        transparent: true,
+        opacity: 0.9
+      });
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -1;
+      ground.receiveShadow = true;
+      scene.add(ground);
+      
+      // Trees/vegetation - lighter colors
+      for (let i = 0; i < 8; i++) {
+        const treeGroup = new THREE.Group();
+        
+        // Tree trunk
+        const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.15, 2);
+        const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x6a4c3a });
+        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+        trunk.position.y = 0;
+        trunk.castShadow = true;
+        treeGroup.add(trunk);
+        
+        // Tree foliage - brighter green
+        const foliageGeometry = new THREE.SphereGeometry(0.8, 8, 6);
+        const foliageMaterial = new THREE.MeshLambertMaterial({ color: 0x2d4a2d });
+        const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+        foliage.position.y = 1.5;
+        foliage.castShadow = true;
+        treeGroup.add(foliage);
+        
+        // Position trees in a circle
+        const angle = (i / 8) * Math.PI * 2;
+        treeGroup.position.x = Math.cos(angle) * 6;
+        treeGroup.position.z = Math.sin(angle) * 6;
+        treeGroup.position.y = -1;
+        
+        scene.add(treeGroup);
+      }
+      
+      // Floating particles
+      const particleGeometry = new THREE.SphereGeometry(0.02, 4, 4);
+      const particleMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00fff7,
+        transparent: true,
+        opacity: 0.6
+      });
+      
+      for (let i = 0; i < 20; i++) {
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.x = (Math.random() - 0.5) * 10;
+        particle.position.y = Math.random() * 3;
+        particle.position.z = (Math.random() - 0.5) * 10;
+        scene.add(particle);
+      }
+    }
+
+    function create3DCreature() {
+      const currentCreature = getCurrentDisplayCreature();
+      
+      console.log('=== CREATE 3D CREATURE DEBUG ===');
+      console.log('Current creature:', currentCreature);
+      console.log('Selected index:', gameState.selectedCreatureIndex);
+      console.log('Lineage length:', gameState.lineage.length);
+      
+      if (!currentCreature) {
+        console.error('No creature to create!');
+        return;
+      }
+      
+      if (!currentCreature.traits || currentCreature.traits.length === 0) {
+        console.error('Creature has no traits!', currentCreature);
+        // Generate default traits if missing
+        currentCreature.traits = TRAITS.map(trait => randomChoice(trait.alleles).code);
+        console.log('Generated default traits:', currentCreature.traits);
+      }
+      
+      // Remove existing creature
+      if (creature3D) {
+        scene.remove(creature3D);
+        creature3D = null;
+      }
+      
+      creature3D = new THREE.Group();
+      
+      // Get creature traits - these MUST affect appearance
+      const bodyColorTrait = getTraitInfo(0, currentCreature.traits[0]);
+      const appendageCount = parseInt(currentCreature.traits[1]) || 0;
+      const eyeType = currentCreature.traits[2] || 'S';
+      const wingType = currentCreature.traits[3] || 'N';
+      const specialType = currentCreature.traits[4] || '-';
+      const stage = currentCreature.stage || 0;
+      
+      console.log('Creature traits:');
+      console.log('- Body color:', bodyColorTrait.label, bodyColorTrait.color);
+      console.log('- Appendages:', appendageCount);
+      console.log('- Eyes:', eyeType);
+      console.log('- Wings:', wingType);
+      console.log('- Special:', specialType);
+      console.log('- Stage:', stage, '(' + LIFECYCLE[stage].name + ')');
+      
+      // Handle missing archetype
+      let archetype = currentCreature.archetype;
+      if (!archetype) {
+        archetype = CREATURE_ARCHETYPES[0];
+        currentCreature.archetype = archetype;
+        console.log('Assigned default archetype:', archetype.name);
+      }
+      
+      // IMPORTANT: Use trait color, not archetype base color
+      const bodyColor = bodyColorTrait.color;
+      
+      // Scale based on lifecycle stage - dramatic size differences
+      const stageScales = [0.3, 0.6, 1.0, 1.5, 2.2]; 
+      const stageScale = stageScales[stage];
+      creature3D.scale.setScalar(stageScale);
+      
+      console.log('Creating body with color:', bodyColor, 'scale:', stageScale);
+      
+      // Calculate mutation level for visual effects
+      const mutationLevel = calculateMutationChance() / 100; // 0.0 to 1.0
+      console.log('Mutation level for visuals:', mutationLevel);
+      
+      // BODY - completely different shapes based on stage and traits
+      let bodyGeometry;
+      
+      if (stage === 0) { // Embryo - egg-like but with creature hints
+        if (appendageCount === 0) {
+          bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8); // Elongated egg for serpents
+        } else {
+          bodyGeometry = new THREE.SphereGeometry(0.6, 12, 8); // Rounder egg for limbed creatures
+        }
+        
+        // Mutation effects for embryo - make it more irregular
+        if (mutationLevel > 0.2) {
+          // Add irregular bumps based on mutation level
+          const bumpCount = Math.floor(3 + mutationLevel * 8); // 3-11 bumps
+          for (let i = 0; i < bumpCount; i++) {
+            const bumpSize = 0.05 + mutationLevel * 0.15; // 0.05-0.2 size
+            const bumpGeometry = new THREE.SphereGeometry(bumpSize, 6, 4);
+            const bumpMaterial = new THREE.MeshPhongMaterial({ 
+              color: new THREE.Color(bodyColor).multiplyScalar(0.7 + mutationLevel * 0.6),
+              transparent: true,
+              opacity: 0.8,
+              emissive: new THREE.Color(bodyColor).multiplyScalar(mutationLevel * 0.3)
+            });
+            const bump = new THREE.Mesh(bumpGeometry, bumpMaterial);
+            
+            // Random positioning around the embryo
+            const phi = Math.random() * Math.PI * 2;
+            const theta = Math.random() * Math.PI;
+            const distance = 0.4 + mutationLevel * 0.3;
+            
+            bump.position.x = Math.sin(theta) * Math.cos(phi) * distance;
+            bump.position.y = Math.sin(theta) * Math.sin(phi) * distance;
+            bump.position.z = Math.cos(theta) * distance;
+            
+            creature3D.add(bump);
+          }
+          console.log('Added', bumpCount, 'mutation bumps to embryo');
+        }
+        
+        console.log('Created embryo form');
+      } else if (stage === 1) { // Larvae - worm-like
+        if (appendageCount === 0) {
+          bodyGeometry = new THREE.CylinderGeometry(0.2, 0.2, 3.0, 8); // Long serpent
+        } else {
+          bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 2.0, 8); // Chunky larva
+        }
+        console.log('Created larvae capsule');
+      } else if (stage === 2) { // Juvenile - developing creature
+        if (appendageCount <= 2) {
+          bodyGeometry = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 10); // Bipedal body
+        } else if (appendageCount <= 4) {
+          bodyGeometry = new THREE.BoxGeometry(1.4, 0.8, 0.8); // Quadruped body
+        } else {
+          bodyGeometry = new THREE.OctahedronGeometry(0.7); // Multi-limbed alien
+        }
+        console.log('Created juvenile form');
+      } else if (stage === 3) { // Adult - full creature
+        if (appendageCount === 0) {
+          bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4.0, 12); // Giant serpent
+        } else if (appendageCount <= 2) {
+          bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 2.2, 12); // Humanoid
+        } else if (appendageCount <= 4) {
+          bodyGeometry = new THREE.BoxGeometry(2.0, 1.0, 1.2); // Beast
+        } else {
+          bodyGeometry = new THREE.DodecahedronGeometry(0.9); // Alien horror
+        }
+        console.log('Created adult form');
+      } else { // Ancient - massive evolved form
+        if (appendageCount === 0) {
+          bodyGeometry = new THREE.CylinderGeometry(0.7, 0.7, 6.0, 16); // Colossal wyrm
+        } else if (appendageCount <= 2) {
+          bodyGeometry = new THREE.CylinderGeometry(1.2, 1.2, 3.0, 16); // Titan
+        } else {
+          bodyGeometry = new THREE.IcosahedronGeometry(1.2); // Eldritch entity
+        }
+        console.log('Created ancient form');
+      }
+      
+      // MATERIAL - based on body color trait with high visibility + mutation effects
+      const baseShininess = stage * 20;
+      const mutationShininess = mutationLevel * 100; // High mutation = very shiny/metallic
+      const mutationEmissive = mutationLevel * 0.4; // High mutation = glowing
+      
+      const bodyMaterial = new THREE.MeshPhongMaterial({ 
+        color: bodyColor,
+        shininess: baseShininess + mutationShininess,
+        transparent: stage === 0 || mutationLevel > 0.6,
+        opacity: stage === 0 ? (0.7 - mutationLevel * 0.2) : (mutationLevel > 0.6 ? 0.9 : 1.0),
+        emissive: new THREE.Color(bodyColor).multiplyScalar(stage * 0.15 + mutationEmissive),
+        emissiveIntensity: mutationLevel * 0.8 // Mutation makes it glow more
+      });
+      
+      // High mutation can make the body geometry irregular
+      if (mutationLevel > 0.4 && stage > 0) {
+        // Add noise to geometry for high mutation
+        const bodyScale = 1 + (mutationLevel - 0.4) * 0.5; // Up to 1.3x scale for high mutation
+        bodyGeometry.scale(bodyScale, 1, bodyScale);
+      }
+      
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      
+      // Mutation can cause body distortion
+      if (mutationLevel > 0.5) {
+        body.rotation.z = (mutationLevel - 0.5) * 0.5; // Slight tilt for high mutation
+        body.scale.y *= 1 + (mutationLevel - 0.5) * 0.8; // Stretch for high mutation
+      }
+      
+      creature3D.add(body);
+      
+      console.log('Added body mesh to creature3D');
+
+      // Add creature features even at embryo stage to make it look more alive
+      if (stage === 0) {
+        // Add eye spots for embryo
+        const eyeSpotGeometry = new THREE.SphereGeometry(0.08, 6, 4);
+        const eyeSpotMaterial = new THREE.MeshPhongMaterial({ 
+          color: 0x000000,
+          transparent: true,
+          opacity: 0.8
+        });
+        
+        // Left eye spot
+        const leftEyeSpot = new THREE.Mesh(eyeSpotGeometry, eyeSpotMaterial);
+        leftEyeSpot.position.set(-0.2, 0.3, 0.4);
+        creature3D.add(leftEyeSpot);
+        
+        // Right eye spot
+        const rightEyeSpot = new THREE.Mesh(eyeSpotGeometry, eyeSpotMaterial);
+        rightEyeSpot.position.set(0.2, 0.3, 0.4);
+        creature3D.add(rightEyeSpot);
+        
+        // Add small growth bumps to hint at future appendages
+        if (appendageCount > 0) {
+          for (let i = 0; i < Math.min(4, appendageCount); i++) {
+            const bumpGeometry = new THREE.SphereGeometry(0.06, 6, 4);
+            const bumpMaterial = new THREE.MeshPhongMaterial({ 
+              color: new THREE.Color(bodyColor).multiplyScalar(0.7),
+              transparent: true,
+              opacity: 0.5
+            });
+            const bump = new THREE.Mesh(bumpGeometry, bumpMaterial);
+            
+            const angle = (i / 4) * Math.PI * 2;
+            bump.position.x = Math.cos(angle) * 0.4;
+            bump.position.y = -0.2 + (i % 2) * 0.4;
+            bump.position.z = Math.sin(angle) * 0.4;
+            
+            creature3D.add(bump);
+          }
+        }
+        
+        // Add mutation-based variations for embryo
+        const mutationLevel = calculateMutationChance() / 100;
+        
+        // More mutations = more spiky/different appearance
+        if (mutationLevel > 0.3) {
+          // Add extra spikes for high mutation
+          for (let i = 0; i < 6; i++) {
+            const spikeGeometry = new THREE.ConeGeometry(0.03, 0.2, 4);
+            const spikeMaterial = new THREE.MeshPhongMaterial({ 
+              color: new THREE.Color(bodyColor).multiplyScalar(1.5),
+              emissive: new THREE.Color(bodyColor).multiplyScalar(0.3)
+            });
+            const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+            
+            const angle = (i / 6) * Math.PI * 2;
+            spike.position.x = Math.cos(angle) * 0.5;
+            spike.position.y = Math.sin(i) * 0.3;
+            spike.position.z = Math.sin(angle) * 0.5;
+            spike.rotation.x = Math.random() * Math.PI;
+            spike.rotation.z = angle;
+            
+            creature3D.add(spike);
+          }
+        }
+        
+        console.log('Added embryo features: eye spots, growth bumps, mutation level:', mutationLevel);
+      }
+      
+      // Add specific features for larvae stage
+      if (stage === 1) {
+        console.log('Adding larvae-specific features for stage 1');
+        
+        // REMOVED COMPLEX SEGMENTED BODY - this was causing the creature to disappear
+        // Simple approach: just add basic features like other stages
+        
+        console.log('Added larvae features - simplified approach');
+      }
+      
+      // APPENDAGES - dramatic differences based on count and stage
+      if (stage > 1 && appendageCount > 0) {
+        for (let i = 0; i < appendageCount; i++) {
+          let limbGeometry;
+          let limbLength = 1.0 + (stage * 0.3); // Grow with stage
+          
+          if (appendageCount === 2) {
+            // Humanoid legs
+            limbGeometry = new THREE.CylinderGeometry(0.08, 0.12, limbLength * 1.5);
+          } else if (appendageCount === 4) {
+            // Quadruped legs
+            limbGeometry = new THREE.CylinderGeometry(0.06, 0.1, limbLength);
+          } else if (appendageCount === 6) {
+            // Insectoid legs
+            limbGeometry = new THREE.CylinderGeometry(0.04, 0.08, limbLength * 0.8, 6);
+          } else {
+            // Tentacles or many legs
+            limbGeometry = new THREE.CylinderGeometry(0.03, 0.06, limbLength * 0.6);
+          }
+          
+          const limbMaterial = new THREE.MeshPhongMaterial({ 
+            color: new THREE.Color(bodyColor).multiplyScalar(0.8),
+            emissive: new THREE.Color(bodyColor).multiplyScalar(mutationLevel * 0.3), // Mutation glow
+            emissiveIntensity: mutationLevel * 0.6
+          });
+          const limb = new THREE.Mesh(limbGeometry, limbMaterial);
+          
+          const angle = (i / appendageCount) * Math.PI * 2;
+          const radius = appendageCount <= 2 ? 0.3 : 0.8;
+          
+          limb.position.x = Math.cos(angle) * radius;
+          limb.position.z = Math.sin(angle) * radius;
+          limb.position.y = -limbLength * 0.4;
+          limb.rotation.z = Math.cos(angle) * 0.3; // Natural leg angles
+          limb.castShadow = true;
+          
+          // Mutation effects on limbs
+          if (mutationLevel > 0.4) {
+            // High mutation makes limbs irregular
+            const mutationVariation = 1 + (mutationLevel - 0.4) * 0.8;
+            limb.scale.x *= mutationVariation * (0.5 + Math.random());
+            limb.scale.z *= mutationVariation * (0.5 + Math.random());
+            
+            // Random limb distortion for high mutation
+            if (mutationLevel > 0.7) {
+              limb.rotation.x += (Math.random() - 0.5) * mutationLevel;
+              limb.rotation.y += (Math.random() - 0.5) * mutationLevel;
+              limb.scale.y *= 1 + (Math.random() - 0.5) * mutationLevel * 0.5;
+            }
+          }
+          
+          creature3D.add(limb);
+        }
+        console.log('Added', appendageCount, 'appendages');
+      }
+      
+      // EYES - dramatic visual differences (keep larvae eyes in main eye system)
+      if (stage > 0) {
+        let eyeCount, eyeSize, eyeColor, eyeEmission;
+        
+        if (stage === 1) {
+          // Simple larvae eyes
+          eyeCount = 2;
+          eyeSize = 0.08;
+          eyeColor = 0x333333;
+          eyeEmission = 0x111111;
+        } else {
+          switch (eyeType) {
+            case 'S': // Standard
+              eyeCount = 2;
+              eyeSize = 0.1;
+              eyeColor = 0xffffff;
+              eyeEmission = 0x000000;
+              break;
+            case 'L': // Enhanced
+              eyeCount = 2;
+              eyeSize = 0.18;
+              eyeColor = 0x66ff66;
+              eyeEmission = 0x002200;
+              break;
+            case 'X': // Compound
+              eyeCount = 6;
+              eyeSize = 0.08;
+              eyeColor = 0xff6666;
+              eyeEmission = 0x220000;
+              break;
+            case 'V': // Void
+              eyeCount = 1;
+              eyeSize = 0.25;
+              eyeColor = 0x6666ff;
+              eyeEmission = 0x000066;
+              break;
+          }
+        }
+        
+        for (let i = 0; i < eyeCount; i++) {
+          const eyeGeometry = new THREE.SphereGeometry(eyeSize * (1 + stage * 0.2), 8, 6);
+          const eyeMaterial = new THREE.MeshPhongMaterial({ 
+            color: eyeColor,
+            emissive: eyeEmission,
+            emissiveIntensity: (0.3 + stage * 0.1) + (mutationLevel * 0.5) // Mutation makes eyes glow more
+          });
+          const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+          
+          if (eyeCount === 1) {
+            eye.position.set(0, 0.4, 0.6);
+          } else {
+            const eyeAngle = (i / eyeCount) * Math.PI * 2;
+            const eyeRadius = eyeCount === 2 ? 0.3 : 0.5;
+            eye.position.x = Math.cos(eyeAngle) * eyeRadius;
+            eye.position.y = 0.3 + Math.sin(eyeAngle) * 0.1;
+            eye.position.z = Math.sin(eyeAngle) * eyeRadius + 0.4;
+          }
+          
+          // Mutation effects on eyes
+          if (mutationLevel > 0.3) {
+            // High mutation makes eyes larger and more irregular
+            const mutationScale = 1 + mutationLevel * 0.8;
+            eye.scale.setScalar(mutationScale);
+            
+            // Add random eye distortion
+            if (mutationLevel > 0.6) {
+              eye.scale.x *= 1 + (Math.random() - 0.5) * mutationLevel;
+              eye.scale.y *= 1 + (Math.random() - 0.5) * mutationLevel;
+              eye.rotation.z = (Math.random() - 0.5) * mutationLevel * 2;
+            }
+          }
+          
+          creature3D.add(eye);
+        }
+        console.log('Added', eyeCount, 'eyes for stage:', stage);
+      }
+      
+      // WINGS - only appear at adult+ stages
+      if (stage >= 3 && wingType !== 'N') {
+        let wingMaterial, wingSize;
+        
+        switch (wingType) {
+          case 'F': // Feathered
+            wingMaterial = new THREE.MeshPhongMaterial({ 
+              color: 0x4466ff,
+              transparent: true,
+              opacity: 0.8,
+              side: THREE.DoubleSide
+            });
+            wingSize = [2.0, 1.2];
+            break;
+          case 'M': // Membrane
+            wingMaterial = new THREE.MeshPhongMaterial({ 
+              color: 0x664466,
+              transparent: true,
+              opacity: 0.6,
+              side: THREE.DoubleSide
+            });
+            wingSize = [2.5, 1.5];
+            break;
+          case 'E': // Energy
+            wingMaterial = new THREE.MeshPhongMaterial({ 
+              color: 0x6666ff,
+              transparent: true,
+              opacity: 0.4,
+              emissive: 0x3333ff,
+              emissiveIntensity: 0.5,
+              side: THREE.DoubleSide
+            });
+            wingSize = [3.0, 1.0];
+            break;
+        }
+        
+        const wingGeometry = new THREE.PlaneGeometry(wingSize[0], wingSize[1]);
+        
+        // Left wing
+        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+        leftWing.position.set(-1.2, 0.5, 0);
+        leftWing.rotation.y = Math.PI / 4;
+        leftWing.rotation.z = -Math.PI / 6;
+        creature3D.add(leftWing);
+        
+        // Right wing
+        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+        rightWing.position.set(1.2, 0.5, 0);
+        rightWing.rotation.y = -Math.PI / 4;
+        rightWing.rotation.z = Math.PI / 6;
+        creature3D.add(rightWing);
+        
+        console.log('Added wings of type:', wingType);
+      }
+      
+      // SPECIAL FEATURES - visible at juvenile+ stages
+      if (stage >= 2 && specialType !== '-') {
+        const specialColor = getTraitInfo(4, specialType).color;
+        
+        switch (specialType) {
+          case 'T': // Crystalline Tail
+            const tailGeometry = new THREE.ConeGeometry(0.15, 2.5 + stage * 0.5, 8);
+            const tailMaterial = new THREE.MeshPhongMaterial({ 
+              color: specialColor,
+              transparent: true,
+              opacity: 0.8,
+              emissive: new THREE.Color(specialColor).multiplyScalar(0.3 + mutationLevel * 0.4),
+              emissiveIntensity: mutationLevel * 0.8
+            });
+            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+            tail.position.set(0, -0.5, -1.5);
+            tail.rotation.x = Math.PI / 3;
+            
+            // Mutation effects on tail
+            if (mutationLevel > 0.5) {
+              tail.scale.x *= 1 + mutationLevel * 0.5;
+              tail.rotation.z = (Math.random() - 0.5) * mutationLevel;
+            }
+            
+            creature3D.add(tail);
+            break;
+            
+          case 'H': // Plasma Horns
+            const hornCount = stage >= 4 ? 4 : 2;
+            for (let i = 0; i < hornCount; i++) {
+              const hornLength = 1.2 + stage * 0.3 + mutationLevel * 0.8; // Mutation makes horns longer
+              const hornGeometry = new THREE.ConeGeometry(0.08, hornLength, 6);
+              const hornMaterial = new THREE.MeshPhongMaterial({ 
+                color: specialColor,
+                emissive: new THREE.Color(specialColor).multiplyScalar(0.5 + mutationLevel * 0.5),
+                emissiveIntensity: mutationLevel * 1.2
+              });
+              const horn = new THREE.Mesh(hornGeometry, hornMaterial);
+              
+              if (hornCount === 2) {
+                horn.position.set(i === 0 ? -0.3 : 0.3, 1.2, 0.3);
+              } else {
+                const hornAngle = (i / hornCount) * Math.PI * 2;
+                horn.position.x = Math.cos(hornAngle) * 0.4;
+                horn.position.y = 1.2;
+                horn.position.z = Math.sin(hornAngle) * 0.4;
+              }
+              horn.rotation.x = -Math.PI / 8;
+              
+              // Mutation effects on horns
+              if (mutationLevel > 0.6) {
+                horn.rotation.x += (Math.random() - 0.5) * mutationLevel;
+                horn.rotation.z += (Math.random() - 0.5) * mutationLevel;
+                horn.scale.x *= 1 + (Math.random() - 0.5) * mutationLevel;
+              }
+              
+              creature3D.add(horn);
+            }
+            break;
+            
+          case 'S': // Bio Spines
+            const spineCount = 4 + stage * 2 + Math.floor(mutationLevel * 6); // More spines with mutation
+            for (let i = 0; i < spineCount; i++) {
+              const spineLength = 0.8 + stage * 0.2 + mutationLevel * 0.4;
+              const spineGeometry = new THREE.ConeGeometry(0.05, spineLength, 4);
+              const spineMaterial = new THREE.MeshPhongMaterial({ 
+                color: specialColor,
+                emissive: new THREE.Color(specialColor).multiplyScalar(mutationLevel * 0.4),
+                emissiveIntensity: mutationLevel * 0.6
+              });
+              const spine = new THREE.Mesh(spineGeometry, spineMaterial);
+              
+              const spineAngle = (i / spineCount) * Math.PI * 2;
+              spine.position.x = Math.cos(spineAngle) * 0.6;
+              spine.position.y = 0.8 + Math.sin(i) * 0.3;
+              spine.position.z = Math.sin(spineAngle) * 0.6;
+              spine.rotation.x = -Math.PI / 2;
+              spine.rotation.z = spineAngle;
+              
+              // Mutation effects on spines
+              if (mutationLevel > 0.4) {
+                spine.scale.y *= 1 + mutationLevel * 0.8;
+                spine.rotation.x += (Math.random() - 0.5) * mutationLevel * 0.5;
+              }
+              
+              creature3D.add(spine);
+            }
+            break;
+            
+          case 'A': // Armor Plating
+            const plateCount = 8 + stage * 2 + Math.floor(mutationLevel * 4);
+            for (let i = 0; i < plateCount; i++) {
+              const plateGeometry = new THREE.BoxGeometry(0.4, 0.15, 0.3);
+              const plateMaterial = new THREE.MeshStandardMaterial({ 
+                color: specialColor,
+                metalness: 0.9 + mutationLevel * 0.1,
+                roughness: Math.max(0.1, 0.3 - mutationLevel * 0.2),
+                emissive: new THREE.Color(specialColor).multiplyScalar(mutationLevel * 0.3)
+              });
+              const plate = new THREE.Mesh(plateGeometry, plateMaterial);
+              
+              const plateAngle = (i / plateCount) * Math.PI * 2;
+              plate.position.x = Math.cos(plateAngle) * 0.7;
+              plate.position.y = 0.3 + (i % 3) * 0.4;
+              plate.position.z = Math.sin(plateAngle) * 0.7;
+              plate.rotation.y = plateAngle;
+              
+              // Mutation effects on armor
+              if (mutationLevel > 0.5) {
+                plate.scale.setScalar(1 + mutationLevel * 0.5);
+                plate.rotation.x = (Math.random() - 0.5) * mutationLevel;
+              }
+              
+              creature3D.add(plate);
+            }
+            break;
+        }
+        console.log('Added special feature:', specialType, 'with mutation level:', mutationLevel);
+      }
+      
+      // EXTREME MUTATION CHAOS - add random spikes/growths for very high mutation
+      if (mutationLevel > 0.8 && stage > 0) {
+        const chaosCount = Math.floor((mutationLevel - 0.8) * 15); // Up to 3 chaos elements
+        for (let i = 0; i < chaosCount; i++) {
+          const chaosGeometry = Math.random() > 0.5 ? 
+            new THREE.ConeGeometry(0.1, 0.5, 4) : 
+            new THREE.SphereGeometry(0.08, 6, 4);
+          const chaosMaterial = new THREE.MeshPhongMaterial({ 
+            color: new THREE.Color().setHSL(Math.random(), 1, 0.5),
+            emissive: new THREE.Color().setHSL(Math.random(), 1, 0.3),
+            emissiveIntensity: 1.0
+          });
+          const chaos = new THREE.Mesh(chaosGeometry, chaosMaterial);
+          
+          // Random positioning
+          chaos.position.x = (Math.random() - 0.5) * 2;
+          chaos.position.y = (Math.random() - 0.5) * 2;
+          chaos.position.z = (Math.random() - 0.5) * 2;
+          chaos.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+          
+          creature3D.add(chaos);
+        }
+        console.log('Added', chaosCount, 'chaos mutations for extreme mutation level');
+      }
+      
+      creature3D.position.y = 0;
+      scene.add(creature3D);
+      
+      console.log('FINAL CREATURE: Stage', stage, 'Scale', stageScale, 'Color', bodyColor);
+      console.log('Creature3D children count after creation:', creature3D.children.length);
+      console.log('Creature3D position:', creature3D.position);
+      console.log('Scene children count after adding creature:', scene.children.length);
+      
+      // FORCE VISIBLE POSITION AND ADD TO SCENE IMMEDIATELY
+      creature3D.position.set(0, 0, 0);
+      scene.add(creature3D);
+      
+      console.log('Added creature3D to scene at position:', creature3D.position);
+      console.log('Scene children count:', scene.children.length);
+      console.log('=== END CREATE 3D CREATURE DEBUG ===');
+      
+      // Force immediate render
+      if (renderer) {
+        renderer.render(scene, camera);
+        console.log('Forced render after creature creation');
+      }
+      
+      // Additional verification for larvae
+      if (stage === 1) {
+        console.log('*** LARVAE VERIFICATION ***');
+        console.log('Creature3D exists:', !!creature3D);
+        console.log('Creature3D has children:', creature3D ? creature3D.children.length : 'N/A');
+        console.log('Creature3D is in scene:', scene.children.includes(creature3D));
+        console.log('*** END LARVAE VERIFICATION ***');
+      }
+    }
+
+    function animate3D() {
+      animationId = requestAnimationFrame(animate3D);
+      
+      // Rotate creature slowly
+      if (creature3D) {
+        creature3D.rotation.y += 0.005;
+        
+        // Bob up and down slightly
+        creature3D.position.y = Math.sin(Date.now() * 0.002) * 0.1;
+      }
+      
+      // Apply gyroscope rotation if available
+      if (gameState.gyroEnabled && gameState.viewRotation) {
+        camera.position.x = Math.sin(gameState.viewRotation.y) * 5;
+        camera.position.z = Math.cos(gameState.viewRotation.y) * 5;
+        camera.position.y = 2 + gameState.viewRotation.x * 2;
+        camera.lookAt(0, 0, 0);
+      }
+      
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('habitat-3d-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function setupTouchControls() {
+      const container = document.getElementById('habitat-3d-container');
+      let isPointerDown = false;
+      let pointerX = 0;
+      let pointerY = 0;
+      
+      container.addEventListener('pointerdown', (event) => {
+        isPointerDown = true;
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+      });
+      
+      container.addEventListener('pointermove', (event) => {
+        if (!isPointerDown) return;
+        
+        const deltaX = event.clientX - pointerX;
+        const deltaY = event.clientY - pointerY;
+        
+        // Update camera position based on mouse/touch movement
+        const theta = (deltaX * 0.01);
+        const phi = (deltaY * 0.01);
+        
+        camera.position.x = Math.sin(theta) * 5;
+        camera.position.z = Math.cos(theta) * 5;
+        camera.position.y = Math.max(0.5, Math.min(4, camera.position.y + phi));
+        camera.lookAt(0, 0, 0);
+        
+        pointerX = event.clientX;
+        pointerY = event.clientY;
+      });
+      
+      container.addEventListener('pointerup', () => {
+        isPointerDown = false;
+      });
+    }
+
+    // === EVENT HANDLERS ===
+    function setupDNAControls() {
+      // Randomize DNA button
+      document.getElementById('randomize-dna').addEventListener('click', () => {
+        gameState.parentA = generateRandomCreature();
+        gameState.parentB = generateRandomCreature();
+        gameState.offspring = null;
+        
+        // Reset DNA manipulation state
+        gameState.dnaManipulation.parentA.twist = 0;
+        gameState.dnaManipulation.parentB.twist = 0;
+        gameState.dnaManipulation.stability = 85;
+        gameState.dnaManipulation.mutationAmplifier = 1.0;
+        
+        initializeDNAHelix();
+        updateMutationChamber();
+        updateOffspringPreview();
+        drawHabitat();
+      });
+      
+      // Stabilize DNA button
+      document.getElementById('stabilize-dna').addEventListener('click', () => {
+        gameState.dnaManipulation.parentA.twist *= 0.5;
+        gameState.dnaManipulation.parentB.twist *= 0.5;
+        gameState.dnaManipulation.stability = Math.min(95, gameState.dnaManipulation.stability + 20);
+        gameState.dnaManipulation.mutationAmplifier = Math.max(0.5, gameState.dnaManipulation.mutationAmplifier - 0.3);
+        
+        // Reset segment offsets
+        gameState.dnaManipulation.parentA.segments.forEach(segment => segment.offset *= 0.5);
+        gameState.dnaManipulation.parentB.segments.forEach(segment => segment.offset *= 0.5);
+        
+        updateMutationChamber();
+        updateOffspringPreview();
+      });
+      
+      // Amplify mutation button
+      document.getElementById('amplify-mutation').addEventListener('click', () => {
+        gameState.dnaManipulation.mutationAmplifier = Math.min(3.0, gameState.dnaManipulation.mutationAmplifier + 0.5);
+        gameState.dnaManipulation.stability = Math.max(20, gameState.dnaManipulation.stability - 15);
+        
+        // Add random twists
+        gameState.dnaManipulation.parentA.twist += (Math.random() - 0.5) * 2;
+        gameState.dnaManipulation.parentB.twist += (Math.random() - 0.5) * 2;
+        
+        updateMutationChamber();
+        updateOffspringPreview();
+      });
+    }
+
+    function breedCreatures() {
+      console.log('breedCreatures called'); // Debug log
+      
+      if (!gameState.offspring) {
+        gameState.offspring = calculateOffspring();
+      }
+
+      console.log('Breeding offspring:', gameState.offspring); // Debug log
+
+      // Add to lineage
+      gameState.lineage.push(gameState.offspring);
+      
+      // Save creature to localStorage
+      saveCreatureToStorage(gameState.offspring);
+      
+      // Enable lifecycle section now that we have a creature
+      gameState.hasCreatedCreature = true;
+      
+      // Reset selection to latest creature
+      gameState.selectedCreatureIndex = -1;
+      
+      // Set new parents (B becomes A, offspring becomes B)
+      gameState.parentA = { ...gameState.parentB };
+      gameState.parentB = { ...gameState.offspring };
+      
+      // Ensure the new creature has proper archetype assignment
+      if (!gameState.parentB.archetype) {
+        // Assign archetype based on traits
+        const appendageCount = parseInt(gameState.parentB.traits[1]) || 0;
+        let archetypeIndex = 0;
+        if (appendageCount === 0) archetypeIndex = 0; // Serpent
+        else if (appendageCount <= 2) archetypeIndex = 2; // Wraith
+        else if (appendageCount <= 4) archetypeIndex = 1; // Beast
+        else if (appendageCount <= 6) archetypeIndex = 3; // Hunter
+        else archetypeIndex = 4; // Drone
+        
+        gameState.parentB.archetype = CREATURE_ARCHETYPES[archetypeIndex];
+      }
+      
+      // Clear offspring to force recalculation
+      gameState.offspring = null;
+
+      // Reset DNA manipulation for new parents
+      gameState.dnaManipulation.stability = Math.min(85, gameState.dnaManipulation.stability + 10);
+      initializeDNAHelix();
+      
+      // Ensure the new creature starts at embryo stage
+      const newCreature = gameState.lineage[gameState.lineage.length - 1];
+      newCreature.stage = 0;
+      
+      console.log('New creature in lineage with archetype:', newCreature, newCreature.archetype); // Debug log
+      
+      // Force immediate 3D creature update
+      if (scene) {
+        console.log('Force creating 3D creature after breeding');
+        
+        // Remove any existing creature first
+        if (creature3D) {
+          scene.remove(creature3D);
+          creature3D = null;
+        }
+        
+        // Create the new creature immediately
+        create3DCreature();
+        
+        // Force a render to make sure it's visible
+        renderer.render(scene, camera);
+      }
+      
+      // Update all UI elements
+      renderAll();
+    }
+
+    // === MAIN RENDERING ===
+    function renderAll() {
+      console.log('renderAll called'); // Debug log
+      console.log('Current lineage length:', gameState.lineage.length);
+      console.log('Current parentB:', gameState.parentB);
+      
+      updateOffspringPreview();
+      renderLifecycle();
+      renderLineage();
+      updateMutationChamber();
+      
+      // Always ensure we have a creature to display
+      const currentCreature = gameState.lineage.length > 0 ? 
+        gameState.lineage[gameState.lineage.length - 1] : 
+        gameState.parentB;
+        
+      console.log('Current creature to display:', currentCreature);
+      
+      // Force update 3D creature
+      if (scene && currentCreature) {
+        console.log('Updating 3D creature in renderAll');
+        create3DCreature();
+      }
+    }
+
+    // === GYROSCOPE AUTO-INITIALIZATION ===
+    function initializeGyroscope() {
+    if (window.DeviceOrientationEvent) {
+        // Request permission for iOS
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission()
+            .then(response => {
+              if (response === 'granted') {
+                gameState.gyroEnabled = true;
+                setupGyroscopeListeners();
+              }
+            })
+            .catch(console.error);
+        } else {
+          // Android and other devices
+          gameState.gyroEnabled = true;
+          setupGyroscopeListeners();
+        }
+      }
+    }
+
+    function setupGyroscopeListeners() {
+      window.addEventListener('deviceorientation', (event) => {
+        if (!gameState.gyroEnabled) return;
+        
+        gameState.viewRotation.y = (event.gamma || 0) * 0.02;
+        gameState.viewRotation.x = ((event.beta || 0) - 90) * 0.02;
+        
+        // Clamp rotation values
+        gameState.viewRotation.x = Math.max(-1, Math.min(1, gameState.viewRotation.x));
+        gameState.viewRotation.y = Math.max(-2, Math.min(2, gameState.viewRotation.y));
+      });
+    }
+
+    // === DNA HELIX ANIMATION LOOP ===
+    function animateDNAHelixes() {
+      drawDNAHelix('parent-a-helix', 'parentA');
+      drawDNAHelix('parent-b-helix', 'parentB');
+      requestAnimationFrame(animateDNAHelixes);
+    }
+
+    // === INITIALIZATION ===
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('=== INITIALIZATION STARTED ===');
+      
+      // Load saved creatures from localStorage
+      const savedCreatures = loadCreaturesFromStorage();
+      if (savedCreatures.length > 0) {
+        console.log('Loaded', savedCreatures.length, 'saved creatures');
+        gameState.lineage = savedCreatures;
+        gameState.hasCreatedCreature = true;
+        
+        // Set the latest creature as parentB
+        const latestCreature = savedCreatures[savedCreatures.length - 1];
+        gameState.parentB = { ...latestCreature };
+        
+        console.log('Restored latest creature:', latestCreature);
+      }
+      
+      // Initialize 3D habitat first
+      initialize3DHabitat();
+      
+      // Ensure we have properly initialized creatures
+      if (!gameState.parentA.traits) {
+        gameState.parentA = generateRandomCreature();
+      }
+      if (!gameState.parentB.traits) {
+        gameState.parentB = generateRandomCreature();
+      }
+      
+      console.log('Initial parentA:', gameState.parentA);
+      console.log('Initial parentB:', gameState.parentB);
+      
+      // Ensure we start with a creature in the lineage for immediate display
+      if (gameState.lineage.length === 0) {
+        const startingCreature = { ...gameState.parentB };
+        startingCreature.stage = 0; // Start at embryo
+        gameState.lineage.push(startingCreature);
+        console.log('Created starting creature in lineage:', startingCreature);
+      }
+      
+      // Initialize DNA helix system
+      initializeDNAHelix();
+      
+      // Setup DNA interactions
+      setupDNAInteraction('parent-a-helix', 'parentA');
+      setupDNAInteraction('parent-b-helix', 'parentB');
+      
+      // Setup DNA control buttons
+      setupDNAControls();
+      
+      // Initialize gyroscope automatically
+      initializeGyroscope();
+      
+      // Event listeners
+      document.getElementById('breed-button').addEventListener('click', () => {
+        console.log('=== BREED BUTTON CLICKED ===');
+        console.log('Before breeding - parentA:', gameState.parentA);
+        console.log('Before breeding - parentB:', gameState.parentB);
+        console.log('Before breeding - lineage length:', gameState.lineage.length);
+        breedCreatures();
+        console.log('After breeding - lineage length:', gameState.lineage.length);
+        console.log('After breeding - latest creature:', gameState.lineage[gameState.lineage.length - 1]);
+      });
+      
+      // Reset view button
+      document.getElementById('reset-view').addEventListener('click', () => {
+        gameState.viewRotation = { x: 0, y: 0 };
+        camera.position.set(0, 2, 5);
+        camera.lookAt(0, 0, 0);
+      });
+
+      // Latest creature button
+      document.getElementById('view-latest').addEventListener('click', () => {
+        gameState.selectedCreatureIndex = -1; // -1 means latest
+        if (scene) {
+          create3DCreature();
+        }
+        renderLineage();
+        renderLifecycle();
+      });
+
+      // Initialize all systems
+      renderAll();
+      
+      // Start DNA animation loop
+      animateDNAHelixes();
+
+      // Auto-advance lifecycle demo (reduced frequency)
+      setInterval(() => {
+        if (gameState.lineage.length > 0 && Math.random() < 0.05) {
+          const currentCreature = gameState.lineage[gameState.lineage.length - 1];
+          if (currentCreature.stage < LIFECYCLE.length - 1) {
+            evolveCreature(currentCreature.stage + 1);
+          }
+        }
+      }, 5000);
+      
+      console.log('=== INITIALIZATION COMPLETE ===');
+    });
+  </script>
+</body>
+</html>
