@@ -431,7 +431,7 @@
               <canvas id="parent-a-helix" class="w-full h-64 bg-black cursor-pointer" 
                       width="200" height="256" aria-label="Alpha genome helix - click and drag to manipulate"></canvas>
             </div>
-            <p class="mt-2 text-xs text-white font-bold uppercase text-center">CLICK & DRAG GENE SEGMENTS</p>
+            <p class="mt-2 text-xs text-white font-bold uppercase text-center">DRAG UP/DOWN TO MUTATE</p>
     </section>
           
           <!-- Mutation Chamber -->
@@ -467,9 +467,9 @@
             </header>
             <div class="helix-container p-2">
               <canvas id="parent-b-helix" class="w-full h-64 bg-black cursor-pointer" 
-                      width="200" height="256" aria-label="Beta genome helix - click and drag to manipulate"></canvas>
+                      width="200" height="256" aria-label="Beta genome helix - drag up and down to manipulate"></canvas>
       </div>
-            <p class="mt-2 text-xs text-white font-bold uppercase text-center">CLICK & DRAG GENE SEGMENTS</p>
+            <p class="mt-2 text-xs text-white font-bold uppercase text-center">DRAG UP/DOWN TO MUTATE</p>
     </section>
         </div>
         
@@ -869,83 +869,109 @@
     function setupDNAInteraction(canvasId, parentType) {
       const canvas = document.getElementById(canvasId);
       let isDragging = false;
-      let dragSegment = null;
+      let startY = 0;
       
       canvas.addEventListener('mousedown', (e) => {
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // Check if clicking on a gene segment
-        const dnaData = gameState.dnaManipulation[parentType];
-        const centerX = canvas.width / 2;
-        const time = Date.now() * 0.002 + dnaData.twist;
-        
-        dnaData.segments.forEach((segment, index) => {
-          const segY = segment.y + segment.offset;
-          const angle = (segY * 0.05) + time;
-          const segX = centerX + Math.cos(angle) * 35;
-          
-          const distance = Math.sqrt((x - segX) ** 2 + (y - segY) ** 2);
-          if (distance < 12) {
-            isDragging = true;
-            dragSegment = index;
-          }
-        });
+        isDragging = true;
+        startY = y;
+        canvas.style.cursor = 'grabbing';
       });
       
       canvas.addEventListener('mousemove', (e) => {
-        if (isDragging && dragSegment !== null) {
-          const rect = canvas.getBoundingClientRect();
-          const y = e.clientY - rect.top;
-          
-          // Update segment position and DNA twist
-          const dnaData = gameState.dnaManipulation[parentType];
-          const deltaY = y - dnaData.segments[dragSegment].y;
-          dnaData.segments[dragSegment].offset = Math.max(-20, Math.min(20, deltaY));
-          
-          // Update DNA twist based on manipulation
-          dnaData.twist += deltaY * 0.01;
-          
-          // Decrease stability
-          gameState.dnaManipulation.stability = Math.max(10, gameState.dnaManipulation.stability - 1);
-          
-          updateMutationChamber();
-          updateOffspringPreview();
+        if (!isDragging) {
+          canvas.style.cursor = 'grab';
+          return;
         }
+        
+        const rect = canvas.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const deltaY = startY - y; // Positive = dragging up, Negative = dragging down
+        
+        // Convert vertical movement to mutation changes
+        const mutationChange = deltaY * 0.2; // Adjust sensitivity
+        
+        // Update DNA twist and stability based on direction
+        const dnaData = gameState.dnaManipulation[parentType];
+        dnaData.twist += mutationChange * 0.01;
+        
+        // Dragging up = more instability, dragging down = more stability
+        if (deltaY > 0) {
+          // Dragging up - increase mutation
+          gameState.dnaManipulation.stability = Math.max(10, gameState.dnaManipulation.stability - Math.abs(mutationChange) * 0.5);
+          gameState.dnaManipulation.mutationAmplifier = Math.min(3.0, gameState.dnaManipulation.mutationAmplifier + Math.abs(mutationChange) * 0.02);
+        } else {
+          // Dragging down - decrease mutation
+          gameState.dnaManipulation.stability = Math.min(95, gameState.dnaManipulation.stability + Math.abs(mutationChange) * 0.3);
+          gameState.dnaManipulation.mutationAmplifier = Math.max(0.5, gameState.dnaManipulation.mutationAmplifier - Math.abs(mutationChange) * 0.01);
+        }
+        
+        // Update visual feedback
+        updateMutationChamber();
+        updateOffspringPreview();
+        
+        // Reset start position for continuous dragging
+        startY = y;
       });
       
       canvas.addEventListener('mouseup', () => {
         isDragging = false;
-        dragSegment = null;
+        canvas.style.cursor = 'grab';
+      });
+      
+      canvas.addEventListener('mouseleave', () => {
+        isDragging = false;
+        canvas.style.cursor = 'grab';
       });
       
       // Touch events for mobile
       canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
-        const mouseEvent = new MouseEvent('mousedown', {
-          clientX: touch.clientX,
-          clientY: touch.clientY
-        });
-        canvas.dispatchEvent(mouseEvent);
+        const rect = canvas.getBoundingClientRect();
+        const y = touch.clientY - rect.top;
+        
+        isDragging = true;
+        startY = y;
       });
       
       canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
+        if (!isDragging) return;
+        
         const touch = e.touches[0];
-        const mouseEvent = new MouseEvent('mousemove', {
-          clientX: touch.clientX,
-          clientY: touch.clientY
-        });
-        canvas.dispatchEvent(mouseEvent);
+        const rect = canvas.getBoundingClientRect();
+        const y = touch.clientY - rect.top;
+        const deltaY = startY - y;
+        
+        const mutationChange = deltaY * 0.2;
+        
+        const dnaData = gameState.dnaManipulation[parentType];
+        dnaData.twist += mutationChange * 0.01;
+        
+        if (deltaY > 0) {
+          gameState.dnaManipulation.stability = Math.max(10, gameState.dnaManipulation.stability - Math.abs(mutationChange) * 0.5);
+          gameState.dnaManipulation.mutationAmplifier = Math.min(3.0, gameState.dnaManipulation.mutationAmplifier + Math.abs(mutationChange) * 0.02);
+        } else {
+          gameState.dnaManipulation.stability = Math.min(95, gameState.dnaManipulation.stability + Math.abs(mutationChange) * 0.3);
+          gameState.dnaManipulation.mutationAmplifier = Math.max(0.5, gameState.dnaManipulation.mutationAmplifier - Math.abs(mutationChange) * 0.01);
+        }
+        
+        updateMutationChamber();
+        updateOffspringPreview();
+        
+        startY = y;
       });
       
       canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
-        const mouseEvent = new MouseEvent('mouseup', {});
-        canvas.dispatchEvent(mouseEvent);
+        isDragging = false;
       });
+      
+      // Set initial cursor
+      canvas.style.cursor = 'grab';
     }
 
     // === MUTATION CHAMBER EFFECTS ===
@@ -2123,14 +2149,6 @@
         console.log('Forced render after creature creation');
       }
       
-      // Additional verification for larvae
-      if (stage === 1) {
-        console.log('*** LARVAE VERIFICATION ***');
-        console.log('Creature3D exists:', !!creature3D);
-        console.log('Creature3D has children:', creature3D ? creature3D.children.length : 'N/A');
-        console.log('Creature3D is in scene:', scene.children.includes(creature3D));
-        console.log('*** END LARVAE VERIFICATION ***');
-      }
     }
 
     function animate3D() {
