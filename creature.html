@@ -302,6 +302,40 @@
       padding: 0;
     }
     
+    /* Mobile-specific improvements */
+    @media (max-width: 640px) {
+      .brutal-button {
+        padding: 8px 12px;
+        font-size: 11px;
+        letter-spacing: 1px;
+      }
+      
+      .cyber-title {
+        font-size: 1.5rem !important;
+      }
+      
+      .container {
+        padding-left: 8px;
+        padding-right: 8px;
+      }
+      
+      .trait-card {
+        padding: 8px;
+      }
+      
+      .text-xs {
+        font-size: 10px;
+      }
+      
+      .space-x-4 > * + * {
+        margin-left: 8px;
+      }
+      
+      .space-y-2 > * + * {
+        margin-top: 4px;
+      }
+    }
+    
     /* Borg-style grid overlay */
     .borg-grid {
       background-image: 
@@ -431,7 +465,7 @@
               <canvas id="parent-a-helix" class="w-full h-64 bg-black cursor-pointer" 
                       width="200" height="256" aria-label="Alpha genome helix - click and drag to manipulate"></canvas>
             </div>
-            <p class="mt-2 text-xs text-white font-bold uppercase text-center">DRAG UP/DOWN TO MUTATE</p>
+            <p class="mt-2 text-xs sm:text-xs text-white font-bold uppercase text-center" style="font-size: 10px;">DRAG UP/DOWN TO MUTATE</p>
     </section>
           
           <!-- Mutation Chamber -->
@@ -469,29 +503,29 @@
               <canvas id="parent-b-helix" class="w-full h-64 bg-black cursor-pointer" 
                       width="200" height="256" aria-label="Beta genome helix - drag up and down to manipulate"></canvas>
       </div>
-            <p class="mt-2 text-xs text-white font-bold uppercase text-center">DRAG UP/DOWN TO MUTATE</p>
+            <p class="mt-2 text-xs sm:text-xs text-white font-bold uppercase text-center" style="font-size: 10px;">DRAG UP/DOWN TO MUTATE</p>
     </section>
         </div>
         
         <!-- DNA Manipulation Controls -->
-        <nav class="mt-6 flex justify-center space-x-4" aria-label="DNA manipulation controls">
-          <button id="randomize-dna" class="brutal-button bg-mutant text-black border-black px-4 py-2 font-mono" aria-label="Generate random DNA sequences">
-            🧪 RANDOMIZE DNA
+        <nav class="mt-6 flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4" aria-label="DNA manipulation controls">
+          <button id="randomize-dna" class="brutal-button bg-mutant text-black border-black px-2 py-2 font-mono text-xs sm:text-sm" aria-label="Generate random DNA sequences">
+            🧪 RANDOMIZE
           </button>
-          <button id="stabilize-dna" class="brutal-button-cyan px-4 py-2 font-mono" aria-label="Stabilize DNA helix structure">
-            ⚡ STABILIZE HELIX
+          <button id="stabilize-dna" class="brutal-button-cyan px-2 py-2 font-mono text-xs sm:text-sm" aria-label="Stabilize DNA helix structure">
+            ⚡ STABILIZE
           </button>
-          <button id="amplify-mutation" class="brutal-button-pink px-4 py-2 font-mono" aria-label="Increase mutation probability">
-            💥 AMPLIFY MUTATION
+          <button id="amplify-mutation" class="brutal-button-pink px-2 py-2 font-mono text-xs sm:text-sm" aria-label="Increase mutation probability">
+            💥 AMPLIFY
           </button>
         </nav>
       </article>
 
       <!-- Offspring Preview -->
       <article class="brutal-preview p-4" aria-labelledby="offspring-title">
-        <header class="flex items-center justify-between mb-4">
-          <h3 id="offspring-title" class="font-mono font-black text-neon-yellow uppercase tracking-wider">🔬 OFFSPRING PREVIEW</h3>
-          <div class="flex items-center space-x-4">
+        <header class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 space-y-2 sm:space-y-0">
+          <h3 id="offspring-title" class="font-mono font-black text-neon-yellow uppercase tracking-wider text-sm sm:text-base">🔬 OFFSPRING PREVIEW</h3>
+          <div class="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4">
             <div class="flex items-center space-x-2">
               <span class="text-xs text-white font-bold uppercase">Generation:</span>
               <span id="generation-count" class="text-neon-cyan font-black font-mono" aria-live="polite">1</span>
@@ -537,7 +571,7 @@
           </div>
         </div>
         
-        <button id="breed-button" class="w-full brutal-button-pink text-white font-mono font-black py-3 text-lg tracking-wider" aria-label="Begin creature breeding process">
+        <button id="breed-button" class="w-full brutal-button-pink text-white font-mono font-black py-3 text-sm sm:text-lg tracking-wider" aria-label="Begin creature breeding process">
           INITIATE BREEDING SEQUENCE
         </button>
       </article>
