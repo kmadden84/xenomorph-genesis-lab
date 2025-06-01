@@ -6,7 +6,6 @@
   <title>Fantasy Creature Breeder</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/framer-motion@6.5.1/dist/framer-motion.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -394,10 +393,10 @@
   <header class="brutal-header relative">
     <div class="container mx-auto px-4 py-6 relative z-10">
       <h1 class="text-3xl md:text-5xl font-mono font-black text-center cyber-title glitch" data-text="XENOMORPH GENESIS LAB">
-        XENOMORPH GENESIS LAB
+        CREATURE CREATION LAB
       </h1>
       <p class="text-center cyber-subtitle mt-2 font-bold uppercase tracking-wider text-sm">
-        >> CLASSIFIED BIOENGINEERING FACILITY <<
+        >> CREate your own creatures <<
       </p>
       <div class="flex justify-center mt-3">
         <div class="brutal-input px-3 py-1 text-xs">
@@ -424,17 +423,7 @@
           <!-- Three.js will render here -->
         </div>
         
-        <!-- Habitat Controls -->
-        <nav class="flex justify-between items-center mt-4" aria-label="Habitat controls">
-          <div class="brutal-input px-3 py-2">
-            <span class="text-xs font-bold uppercase">Environment: </span>
-            <span class="text-neon-cyan text-xs font-bold">RESPONSIVE</span>
-          </div>
-          <div class="brutal-input px-3 py-2">
-            <span class="text-xs font-bold uppercase">Gyroscope: </span>
-            <span class="text-mutant text-xs font-bold">AUTO</span>
-          </div>
-        </nav>
+  
       </div>
     </section>
 
@@ -736,14 +725,16 @@
     };
 
     // === LOCALSTORAGE FUNCTIONS ===
-    function saveCreatureToStorage(creature) {
+    async function saveCreatureToStorage(creature) {
       try {
         const saved = JSON.parse(localStorage.getItem('xenomorphCreatures') || '[]');
-        saved.push({
+        const creatureWithMetadata = {
           ...creature,
           timestamp: Date.now(),
           id: creature.id || Date.now()
-        });
+        };
+        
+        saved.push(creatureWithMetadata);
         
         // Keep only last 20 creatures to avoid storage bloat
         if (saved.length > 20) {
@@ -759,8 +750,7 @@
 
     function loadCreaturesFromStorage() {
       try {
-        const saved = JSON.parse(localStorage.getItem('xenomorphCreatures') || '[]');
-        return saved;
+        return JSON.parse(localStorage.getItem('xenomorphCreatures') || '[]');
       } catch (error) {
         console.error('Failed to load creatures:', error);
         return [];
@@ -769,14 +759,14 @@
 
     function getCurrentDisplayCreature() {
       try {
-        if (gameState.selectedCreatureIndex >= 0 && gameState.selectedCreatureIndex < gameState.lineage.length) {
-          return gameState.lineage[gameState.selectedCreatureIndex];
+        const { selectedCreatureIndex, lineage, parentB } = gameState;
+        
+        if (selectedCreatureIndex >= 0 && selectedCreatureIndex < lineage.length) {
+          return lineage[selectedCreatureIndex];
         }
         
         // Default to latest creature or parentB if no lineage
-        return gameState.lineage.length > 0 ? 
-          gameState.lineage[gameState.lineage.length - 1] : 
-          gameState.parentB;
+        return lineage.length > 0 ? lineage[lineage.length - 1] : parentB;
       } catch (error) {
         console.error('Error getting display creature:', error);
         return gameState.parentB; // Fallback to parentB
@@ -792,7 +782,7 @@
         stage: 0,
         parents: null,
         generation: 0,
-        archetype: archetype,
+        archetype,
         // Override some traits based on archetype
         baseColor: archetype.baseColor,
         bodyType: archetype.bodyType
@@ -808,12 +798,18 @@
     }
 
     function calculateMutationChance() {
-      let baseChance = 15;
+      const baseChance = 15;
       
-      // Factor in DNA manipulation
-      const twistFactor = (Math.abs(gameState.dnaManipulation.parentA.twist) + Math.abs(gameState.dnaManipulation.parentB.twist)) * 5;
-      const stabilityFactor = (100 - gameState.dnaManipulation.stability) * 0.3;
-      const amplifierFactor = (gameState.dnaManipulation.mutationAmplifier - 1) * 20;
+      // Factor in DNA manipulation using safer destructuring
+      const dnaManipulation = gameState.dnaManipulation;
+      const twistA = dnaManipulation.parentA.twist;
+      const twistB = dnaManipulation.parentB.twist;
+      const stability = dnaManipulation.stability;
+      const mutationAmplifier = dnaManipulation.mutationAmplifier;
+      
+      const twistFactor = (Math.abs(twistA) + Math.abs(twistB)) * 5;
+      const stabilityFactor = (100 - stability) * 0.3;
+      const amplifierFactor = (mutationAmplifier - 1) * 20;
       
       // Calculate final mutation chance
       const mutationChance = Math.min(75, baseChance + twistFactor + stabilityFactor + amplifierFactor);
@@ -823,20 +819,17 @@
 
     // === DNA HELIX RENDERING ===
     function initializeDNAHelix() {
-      // Initialize DNA segment positions
-      gameState.dnaManipulation.parentA.segments = TRAITS.map((trait, i) => ({
-        trait: i,
-        y: 40 + i * 40,
-        offset: 0,
-        color: getTraitInfo(i, gameState.parentA.traits[i]).color
-      }));
-      
-      gameState.dnaManipulation.parentB.segments = TRAITS.map((trait, i) => ({
-        trait: i,
-        y: 40 + i * 40,
-        offset: 0,
-        color: getTraitInfo(i, gameState.parentB.traits[i]).color
-      }));
+      // Initialize DNA segment positions using modern array methods
+      const createSegments = (parent) => 
+        TRAITS.map((trait, i) => ({
+          trait: i,
+          y: 40 + i * 40,
+          offset: 0,
+          color: getTraitInfo(i, parent.traits[i]).color
+        }));
+
+      gameState.dnaManipulation.parentA.segments = createSegments(gameState.parentA);
+      gameState.dnaManipulation.parentB.segments = createSegments(gameState.parentB);
     }
 
     function drawDNAHelix(canvasId, parentType) {
@@ -883,7 +876,7 @@
         }
       }
       
-      // Draw gene segments
+      // Draw gene segments using modern forEach
       dnaData.segments.forEach((segment, index) => {
         const y = segment.y + segment.offset;
         const angle = (y * 0.05) + time;
@@ -911,23 +904,24 @@
       let isDragging = false;
       let startY = 0;
       
-      canvas.addEventListener('mousedown', (e) => {
+      // Modern event handler patterns
+      const handlePointerStart = (clientY) => {
         const rect = canvas.getBoundingClientRect();
-        const y = e.clientY - rect.top;
+        const y = clientY - rect.top;
         
         isDragging = true;
         startY = y;
         canvas.style.cursor = 'grabbing';
-      });
-      
-      canvas.addEventListener('mousemove', (e) => {
+      };
+
+      const handlePointerMove = (clientY) => {
         if (!isDragging) {
           canvas.style.cursor = 'grab';
           return;
         }
         
         const rect = canvas.getBoundingClientRect();
-        const y = e.clientY - rect.top;
+        const y = clientY - rect.top;
         const deltaY = startY - y; // Positive = dragging up, Negative = dragging down
         
         // Convert vertical movement to mutation changes
@@ -954,27 +948,24 @@
         
         // Reset start position for continuous dragging
         startY = y;
-      });
-      
-      canvas.addEventListener('mouseup', () => {
+      };
+
+      const handlePointerEnd = () => {
         isDragging = false;
         canvas.style.cursor = 'grab';
-      });
+      };
       
-      canvas.addEventListener('mouseleave', () => {
-        isDragging = false;
-        canvas.style.cursor = 'grab';
-      });
+      // Mouse events
+      canvas.addEventListener('mousedown', (e) => handlePointerStart(e.clientY));
+      canvas.addEventListener('mousemove', (e) => handlePointerMove(e.clientY));
+      canvas.addEventListener('mouseup', handlePointerEnd);
+      canvas.addEventListener('mouseleave', handlePointerEnd);
       
-      // Touch events for mobile
+      // Touch events for mobile with modern event handling
       canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const y = touch.clientY - rect.top;
-        
-        isDragging = true;
-        startY = y;
+        handlePointerStart(touch.clientY);
       });
       
       canvas.addEventListener('touchmove', (e) => {
@@ -982,32 +973,12 @@
         if (!isDragging) return;
         
         const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const y = touch.clientY - rect.top;
-        const deltaY = startY - y;
-        
-        const mutationChange = deltaY * 0.2;
-        
-        const dnaData = gameState.dnaManipulation[parentType];
-        dnaData.twist += mutationChange * 0.01;
-        
-        if (deltaY > 0) {
-          gameState.dnaManipulation.stability = Math.max(10, gameState.dnaManipulation.stability - Math.abs(mutationChange) * 0.5);
-          gameState.dnaManipulation.mutationAmplifier = Math.min(3.0, gameState.dnaManipulation.mutationAmplifier + Math.abs(mutationChange) * 0.02);
-        } else {
-          gameState.dnaManipulation.stability = Math.min(95, gameState.dnaManipulation.stability + Math.abs(mutationChange) * 0.3);
-          gameState.dnaManipulation.mutationAmplifier = Math.max(0.5, gameState.dnaManipulation.mutationAmplifier - Math.abs(mutationChange) * 0.01);
-        }
-        
-        updateMutationChamber();
-        updateOffspringPreview();
-        
-        startY = y;
+        handlePointerMove(touch.clientY);
       });
       
       canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
-        isDragging = false;
+        handlePointerEnd();
       });
       
       // Set initial cursor
@@ -1017,23 +988,31 @@
     // === MUTATION CHAMBER EFFECTS ===
     function updateMutationChamber() {
       const mutationChance = calculateMutationChance();
-      const stability = gameState.dnaManipulation.stability;
+      const { stability } = gameState.dnaManipulation;
       
-      // Update mutation percentage display
-      document.getElementById('mutation-percentage').textContent = mutationChance + '%';
-      document.getElementById('mutation-chance').textContent = mutationChance + '%';
+      // Update mutation percentage display with safer element access
+      const mutationPercentageEl = document.getElementById('mutation-percentage');
+      if (mutationPercentageEl) {
+        mutationPercentageEl.textContent = `${mutationChance}%`;
+      }
+      const mutationChanceEl = document.getElementById('mutation-chance');
+      if (mutationChanceEl) {
+        mutationChanceEl.textContent = `${mutationChance}%`;
+      }
       
       // Update stability bar
       const stabilityBar = document.getElementById('stability-bar');
-      stabilityBar.style.width = stability + '%';
-      
-      // Update stability bar color based on stability
-      if (stability > 70) {
-        stabilityBar.className = 'h-full bg-gradient-to-r from-neon-cyan to-mutant transition-all duration-500';
-      } else if (stability > 40) {
-        stabilityBar.className = 'h-full bg-gradient-to-r from-neon-yellow to-neon-pink transition-all duration-500';
-      } else {
-        stabilityBar.className = 'h-full bg-gradient-to-r from-danger to-purple-600 transition-all duration-500';
+      if (stabilityBar) {
+        stabilityBar.style.width = `${stability}%`;
+        
+        // Update stability bar color based on stability using modern conditional logic
+        const colorClass = stability > 70 
+          ? 'h-full bg-gradient-to-r from-neon-cyan to-mutant transition-all duration-500'
+          : stability > 40 
+            ? 'h-full bg-gradient-to-r from-neon-yellow to-neon-pink transition-all duration-500'
+            : 'h-full bg-gradient-to-r from-danger to-purple-600 transition-all duration-500';
+        
+        stabilityBar.className = colorClass;
       }
       
       // Create floating mutation particles
@@ -1042,27 +1021,36 @@
 
     function createMutationParticles(intensity) {
       const container = document.getElementById('mutation-particles');
+      if (!container) return;
       
       // Clear existing particles
       container.innerHTML = '';
       
       // Create new particles based on mutation intensity
       const particleCount = Math.floor(intensity / 5);
+      const colors = ['#ff0080', '#00fff7', '#ffe600', '#00ff04'];
       
-      for (let i = 0; i < particleCount; i++) {
+      // Modern array creation and iteration
+      Array.from({ length: particleCount }, (_, i) => {
         const particle = document.createElement('div');
         particle.className = 'absolute w-1 h-1 rounded-full';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.top = Math.random() * 100 + '%';
-        particle.style.backgroundColor = ['#ff0080', '#00fff7', '#ffe600', '#00ff04'][Math.floor(Math.random() * 4)];
-        particle.style.animation = `float ${2 + Math.random() * 3}s infinite ease-in-out`;
-        particle.style.animationDelay = Math.random() * 2 + 's';
+        
+        // Modern object property assignment
+        Object.assign(particle.style, {
+          left: `${Math.random() * 100}%`,
+          top: `${Math.random() * 100}%`,
+          backgroundColor: colors[Math.floor(Math.random() * colors.length)],
+          animation: `float ${2 + Math.random() * 3}s infinite ease-in-out`,
+          animationDelay: `${Math.random() * 2}s`
+        });
         
         container.appendChild(particle);
-      }
+      });
       
       // Create floating gene symbols
       const geneContainer = document.getElementById('floating-genes');
+      if (!geneContainer) return;
+      
       geneContainer.innerHTML = '';
       
       if (intensity > 30) {
@@ -1070,9 +1058,13 @@
         symbols.forEach((symbol, i) => {
           const gene = document.createElement('div');
           gene.className = 'absolute text-lg opacity-50 animate-bounce';
-          gene.style.left = (20 + i * 20) + '%';
-          gene.style.top = (30 + (i % 2) * 40) + '%';
-          gene.style.animationDelay = i * 0.5 + 's';
+          
+          Object.assign(gene.style, {
+            left: `${20 + i * 20}%`,
+            top: `${30 + (i % 2) * 40}%`,
+            animationDelay: `${i * 0.5}s`
+          });
+          
           gene.textContent = symbol;
           geneContainer.appendChild(gene);
         });
@@ -1095,77 +1087,115 @@
         gameState.offspring = calculateOffspring();
       }
 
-      // Update trait previews
+      // Update trait previews using modern destructuring and template literals
+      const traitUpdaters = [
+        // Body Color
+        (allele) => {
+          const colorPreview = document.getElementById('color-preview');
+          const colorLabel = document.getElementById('color-label');
+          if (colorPreview && colorLabel) {
+            colorPreview.style.backgroundColor = allele.color;
+            colorLabel.textContent = allele.label;
+          }
+        },
+        // Appendages
+        (allele) => {
+          const appendageCount = document.getElementById('appendage-count');
+          const appendageLabel = document.getElementById('appendage-label');
+          if (appendageCount && appendageLabel) {
+            appendageCount.textContent = allele.code;
+            appendageLabel.textContent = allele.label;
+          }
+        },
+        // Eyes
+        (allele) => {
+          const eyeType = document.getElementById('eye-type');
+          const eyeLabel = document.getElementById('eye-label');
+          if (eyeType && eyeLabel) {
+            eyeType.textContent = allele.code;
+            eyeLabel.textContent = allele.label;
+          }
+        },
+        // Flight
+        (allele) => {
+          const flightType = document.getElementById('flight-type');
+          const flightLabel = document.getElementById('flight-label');
+          if (flightType && flightLabel) {
+            flightType.textContent = allele.code;
+            flightLabel.textContent = allele.label;
+          }
+        },
+        // Special
+        (allele) => {
+          const specialType = document.getElementById('special-type');
+          const specialLabel = document.getElementById('special-label');
+          if (specialType && specialLabel) {
+            specialType.textContent = allele.code;
+            specialLabel.textContent = allele.label;
+          }
+        }
+      ];
+
       TRAITS.forEach((trait, i) => {
         const allele = getTraitInfo(i, gameState.offspring.traits[i]);
-        
-        switch (i) {
-          case 0: // Body Color
-            document.getElementById('color-preview').style.backgroundColor = allele.color;
-            document.getElementById('color-label').textContent = allele.label;
-            break;
-          case 1: // Appendages
-            document.getElementById('appendage-count').textContent = allele.code;
-            document.getElementById('appendage-label').textContent = allele.label;
-            break;
-          case 2: // Eyes
-            document.getElementById('eye-type').textContent = allele.code;
-            document.getElementById('eye-label').textContent = allele.label;
-            break;
-          case 3: // Flight
-            document.getElementById('flight-type').textContent = allele.code;
-            document.getElementById('flight-label').textContent = allele.label;
-            break;
-          case 4: // Special
-            document.getElementById('special-type').textContent = allele.code;
-            document.getElementById('special-label').textContent = allele.label;
-            break;
+        if (traitUpdaters[i]) {
+          traitUpdaters[i](allele);
         }
         
-        // Add mutation indicator
+        // Add mutation indicator using safe class manipulation
         const preview = document.getElementById(`trait-preview-${i}`);
-        if (gameState.offspring.mutations && gameState.offspring.mutations[i]) {
-          preview.classList.add('ring-2', 'ring-mutant', 'animate-pulse');
-        } else {
-          preview.classList.remove('ring-2', 'ring-mutant', 'animate-pulse');
+        if (preview) {
+          const mutationClasses = ['ring-2', 'ring-mutant', 'animate-pulse'];
+          const hasMutation = gameState.offspring.mutations && gameState.offspring.mutations[i];
+          
+          // Use safe classList methods
+          if (hasMutation) {
+            mutationClasses.forEach(cls => preview.classList.add(cls));
+          } else {
+            mutationClasses.forEach(cls => preview.classList.remove(cls));
+          }
         }
       });
       
-      // Update generation count
-      document.getElementById('generation-count').textContent = gameState.offspring.generation;
+      // Update generation count using optional chaining
+      const generationElement = document.getElementById('generation-count');
+      if (generationElement) {
+        generationElement.textContent = gameState.offspring.generation;
+      }
     }
 
     function calculateOffspring() {
+      const { parentA, parentB } = gameState;
+      const mutationChance = calculateMutationChance() / 100;
+
       const offspring = {
         id: Date.now() + Math.random(),
         traits: [],
         mutations: [],
         stage: 0,
-        parents: [gameState.parentA.id, gameState.parentB.id],
-        generation: Math.max(gameState.parentA.generation, gameState.parentB.generation) + 1
+        parents: [parentA.id, parentB.id],
+        generation: Math.max(parentA.generation, parentB.generation) + 1
       };
 
-      const mutationChance = calculateMutationChance() / 100;
+      // Modern array initialization and mutation logic
+      offspring.traits = TRAITS.map((trait, i) => {
+        const willMutate = Math.random() < mutationChance;
+        offspring.mutations[i] = willMutate;
 
-      for (let i = 0; i < TRAITS.length; i++) {
-        if (Math.random() < mutationChance) {
-          // Mutation occurred
-          const availableAlleles = TRAITS[i].alleles.filter(a => 
-            a.code !== gameState.parentA.traits[i] && 
-            a.code !== gameState.parentB.traits[i]
+        if (willMutate) {
+          // Mutation occurred - filter out parent traits
+          const availableAlleles = trait.alleles.filter(({ code }) => 
+            code !== parentA.traits[i] && code !== parentB.traits[i]
           );
-          offspring.traits[i] = availableAlleles.length > 0 ? 
-            randomChoice(availableAlleles).code : 
-            randomChoice(TRAITS[i].alleles).code;
-          offspring.mutations[i] = true;
+          
+          return availableAlleles.length > 0 
+            ? randomChoice(availableAlleles).code 
+            : randomChoice(trait.alleles).code;
         } else {
           // Inherit from random parent
-          offspring.traits[i] = Math.random() < 0.5 ? 
-            gameState.parentA.traits[i] : 
-            gameState.parentB.traits[i];
-          offspring.mutations[i] = false;
+          return Math.random() < 0.5 ? parentA.traits[i] : parentB.traits[i];
         }
-      }
+      });
 
       return offspring;
     }
@@ -2225,66 +2255,84 @@
 
     // === EVENT HANDLERS ===
     function setupDNAControls() {
-      // Randomize DNA button
-      document.getElementById('randomize-dna').addEventListener('click', () => {
-        gameState.parentA = generateRandomCreature();
-        gameState.parentB = generateRandomCreature();
-        gameState.offspring = null;
-        
-        // Reset DNA manipulation state
-        gameState.dnaManipulation.parentA.twist = 0;
-        gameState.dnaManipulation.parentB.twist = 0;
-        gameState.dnaManipulation.stability = 85;
-        gameState.dnaManipulation.mutationAmplifier = 1.0;
-        
-        initializeDNAHelix();
-        updateMutationChamber();
-        updateOffspringPreview();
-        drawHabitat();
-      });
-      
-      // Stabilize DNA button
-      document.getElementById('stabilize-dna').addEventListener('click', () => {
-        gameState.dnaManipulation.parentA.twist *= 0.5;
-        gameState.dnaManipulation.parentB.twist *= 0.5;
-        gameState.dnaManipulation.stability = Math.min(95, gameState.dnaManipulation.stability + 20);
-        gameState.dnaManipulation.mutationAmplifier = Math.max(0.5, gameState.dnaManipulation.mutationAmplifier - 0.3);
-        
-        // Reset segment offsets
-        gameState.dnaManipulation.parentA.segments.forEach(segment => segment.offset *= 0.5);
-        gameState.dnaManipulation.parentB.segments.forEach(segment => segment.offset *= 0.5);
-        
-        updateMutationChamber();
-        updateOffspringPreview();
-      });
-      
-      // Amplify mutation button
-      document.getElementById('amplify-mutation').addEventListener('click', () => {
-        gameState.dnaManipulation.mutationAmplifier = Math.min(3.0, gameState.dnaManipulation.mutationAmplifier + 0.5);
-        gameState.dnaManipulation.stability = Math.max(20, gameState.dnaManipulation.stability - 15);
-        
-        // Add random twists
-        gameState.dnaManipulation.parentA.twist += (Math.random() - 0.5) * 2;
-        gameState.dnaManipulation.parentB.twist += (Math.random() - 0.5) * 2;
-        
-        updateMutationChamber();
-        updateOffspringPreview();
+      const controls = [
+        {
+          id: 'randomize-dna',
+          handler: () => {
+            // Use object spread for state updates
+            gameState.parentA = generateRandomCreature();
+            gameState.parentB = generateRandomCreature();
+            gameState.offspring = null;
+            
+            // Reset DNA manipulation state with spread
+            gameState.dnaManipulation = {
+              ...gameState.dnaManipulation,
+              parentA: { twist: 0, segments: [] },
+              parentB: { twist: 0, segments: [] },
+              stability: 85,
+              mutationAmplifier: 1.0
+            };
+            
+            initializeDNAHelix();
+            updateMutationChamber();
+            updateOffspringPreview();
+          }
+        },
+        {
+          id: 'stabilize-dna',
+          handler: () => {
+            const { dnaManipulation } = gameState;
+            
+            // Modern destructuring assignment
+            dnaManipulation.parentA.twist *= 0.5;
+            dnaManipulation.parentB.twist *= 0.5;
+            dnaManipulation.stability = Math.min(95, dnaManipulation.stability + 20);
+            dnaManipulation.mutationAmplifier = Math.max(0.5, dnaManipulation.mutationAmplifier - 0.3);
+            
+            // Reset segment offsets using forEach
+            [dnaManipulation.parentA, dnaManipulation.parentB].forEach(parent => 
+              parent.segments.forEach(segment => segment.offset *= 0.5)
+            );
+            
+            updateMutationChamber();
+            updateOffspringPreview();
+          }
+        },
+        {
+          id: 'amplify-mutation',
+          handler: () => {
+            const { dnaManipulation } = gameState;
+            
+            dnaManipulation.mutationAmplifier = Math.min(3.0, dnaManipulation.mutationAmplifier + 0.5);
+            dnaManipulation.stability = Math.max(20, dnaManipulation.stability - 15);
+            
+            // Add random twists using destructuring
+            const randomTwist = () => (Math.random() - 0.5) * 2;
+            dnaManipulation.parentA.twist += randomTwist();
+            dnaManipulation.parentB.twist += randomTwist();
+            
+            updateMutationChamber();
+            updateOffspringPreview();
+          }
+        }
+      ];
+
+      // Modern event listener setup
+      controls.forEach(({ id, handler }) => {
+        const element = document.getElementById(id);
+        element?.addEventListener('click', handler);
       });
     }
 
     function breedCreatures() {
-      
-      
       if (!gameState.offspring) {
         gameState.offspring = calculateOffspring();
       }
 
-      
-
       // Add to lineage
       gameState.lineage.push(gameState.offspring);
       
-      // Save creature to localStorage
+      // Save creature to localStorage using async pattern
       saveCreatureToStorage(gameState.offspring);
       
       // Enable lifecycle section now that we have a creature
@@ -2293,20 +2341,20 @@
       // Reset selection to latest creature
       gameState.selectedCreatureIndex = -1;
       
-      // Set new parents (B becomes A, offspring becomes B)
-      gameState.parentA = { ...gameState.parentB };
-      gameState.parentB = { ...gameState.offspring };
+      // Set new parents (B becomes A, offspring becomes B) using destructuring
+      const { parentB, offspring } = gameState;
+      gameState.parentA = { ...parentB };
+      gameState.parentB = { ...offspring };
       
       // Ensure the new creature has proper archetype assignment
       if (!gameState.parentB.archetype) {
-        // Assign archetype based on traits
+        // Assign archetype based on traits using modern conditional logic
         const appendageCount = parseInt(gameState.parentB.traits[1]) || 0;
-        let archetypeIndex = 0;
-        if (appendageCount === 0) archetypeIndex = 0; // Serpent
-        else if (appendageCount <= 2) archetypeIndex = 2; // Wraith
-        else if (appendageCount <= 4) archetypeIndex = 1; // Beast
-        else if (appendageCount <= 6) archetypeIndex = 3; // Hunter
-        else archetypeIndex = 4; // Drone
+        const archetypeIndex = appendageCount === 0 ? 0 // Serpent
+          : appendageCount <= 2 ? 2 // Wraith
+          : appendageCount <= 4 ? 1 // Beast
+          : appendageCount <= 6 ? 3 // Hunter
+          : 4; // Drone
         
         gameState.parentB.archetype = CREATURE_ARCHETYPES[archetypeIndex];
       }
@@ -2322,12 +2370,8 @@
       const newCreature = gameState.lineage[gameState.lineage.length - 1];
       newCreature.stage = 0;
       
-      
-      
       // Force immediate 3D creature update
       if (scene) {
-        
-        
         // Remove any existing creature first
         if (creature3D) {
           scene.remove(creature3D);
@@ -2347,154 +2391,180 @@
 
     // === MAIN RENDERING ===
     function renderAll() {
+      const renderFunctions = [
+        updateOffspringPreview,
+        renderLifecycle,
+        renderLineage,
+        updateMutationChamber
+      ];
       
-      
-      
-      
-      updateOffspringPreview();
-      renderLifecycle();
-      renderLineage();
-      updateMutationChamber();
+      // Execute all render functions
+      renderFunctions.forEach(fn => fn());
       
       // Always ensure we have a creature to display
-      const currentCreature = gameState.lineage.length > 0 ? 
-        gameState.lineage[gameState.lineage.length - 1] : 
-        gameState.parentB;
-        
-      
+      const currentCreature = gameState.lineage.length > 0 
+        ? gameState.lineage[gameState.lineage.length - 1] 
+        : gameState.parentB;
       
       // Force update 3D creature
       if (scene && currentCreature) {
-        
         create3DCreature();
       }
     }
 
     // === GYROSCOPE AUTO-INITIALIZATION ===
-    function initializeGyroscope() {
-    if (window.DeviceOrientationEvent) {
-        // Request permission for iOS
+    async function initializeGyroscope() {
+      if (!window.DeviceOrientationEvent) return;
+
+      try {
+        // Request permission for iOS using modern async/await
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          DeviceOrientationEvent.requestPermission()
-            .then(response => {
-              if (response === 'granted') {
-                gameState.gyroEnabled = true;
-                setupGyroscopeListeners();
-              }
-            })
-            .catch(console.error);
+          const response = await DeviceOrientationEvent.requestPermission();
+          if (response === 'granted') {
+            gameState.gyroEnabled = true;
+            setupGyroscopeListeners();
+          }
         } else {
           // Android and other devices
           gameState.gyroEnabled = true;
           setupGyroscopeListeners();
         }
+      } catch (error) {
+        console.error('Gyroscope initialization failed:', error);
       }
     }
 
     function setupGyroscopeListeners() {
-      window.addEventListener('deviceorientation', (event) => {
+      const handleOrientation = (event) => {
         if (!gameState.gyroEnabled) return;
         
-        gameState.viewRotation.y = (event.gamma || 0) * 0.02;
-        gameState.viewRotation.x = ((event.beta || 0) - 90) * 0.02;
+        // Use destructuring and nullish coalescing
+        const { gamma = 0, beta = 0 } = event;
         
-        // Clamp rotation values
+        gameState.viewRotation.y = gamma * 0.02;
+        gameState.viewRotation.x = (beta - 90) * 0.02;
+        
+        // Clamp rotation values using modern Math methods
         gameState.viewRotation.x = Math.max(-1, Math.min(1, gameState.viewRotation.x));
         gameState.viewRotation.y = Math.max(-2, Math.min(2, gameState.viewRotation.y));
-      });
+      };
+
+      window.addEventListener('deviceorientation', handleOrientation);
     }
 
     // === DNA HELIX ANIMATION LOOP ===
     function animateDNAHelixes() {
-      drawDNAHelix('parent-a-helix', 'parentA');
-      drawDNAHelix('parent-b-helix', 'parentB');
+      const helixIds = [
+        { canvasId: 'parent-a-helix', parentType: 'parentA' },
+        { canvasId: 'parent-b-helix', parentType: 'parentB' }
+      ];
+
+      helixIds.forEach(({ canvasId, parentType }) => 
+        drawDNAHelix(canvasId, parentType)
+      );
+      
       requestAnimationFrame(animateDNAHelixes);
     }
 
     // === INITIALIZATION ===
     document.addEventListener('DOMContentLoaded', () => {
-      
-      
-      // Load saved creatures from localStorage
-      const savedCreatures = loadCreaturesFromStorage();
-      if (savedCreatures.length > 0) {
+      try {
+        // Load saved creatures from localStorage
+        const savedCreatures = loadCreaturesFromStorage();
         
-        gameState.lineage = savedCreatures;
-        gameState.hasCreatedCreature = true;
-        
-        // Set the latest creature as parentB
-        const latestCreature = savedCreatures[savedCreatures.length - 1];
-        gameState.parentB = { ...latestCreature };
-        
-        
-      }
-      
-      // Initialize 3D habitat first
-      initialize3DHabitat();
-      
-      // Ensure we have properly initialized creatures
-      if (!gameState.parentA.traits) {
-        gameState.parentA = generateRandomCreature();
-      }
-      if (!gameState.parentB.traits) {
-        gameState.parentB = generateRandomCreature();
-      }
-      
-      
-      
-      
-      // Ensure we start with a creature in the lineage for immediate display
-      if (gameState.lineage.length === 0) {
-        const startingCreature = { ...gameState.parentB };
-        startingCreature.stage = 0; // Start at embryo
-        gameState.lineage.push(startingCreature);
-        
-      }
-      
-      // Initialize DNA helix system
-      initializeDNAHelix();
-      
-      // Setup DNA interactions
-      setupDNAInteraction('parent-a-helix', 'parentA');
-      setupDNAInteraction('parent-b-helix', 'parentB');
-      
-      // Setup DNA control buttons
-      setupDNAControls();
-      
-      // Initialize gyroscope automatically
-      initializeGyroscope();
-      
-      // Event listeners
-      document.getElementById('breed-button').addEventListener('click', () => {
-        breedCreatures();
-      });
-      
-      // Latest creature button
-      document.getElementById('view-latest').addEventListener('click', () => {
-        gameState.selectedCreatureIndex = -1; // -1 means latest
-        if (scene) {
-          create3DCreature();
+        if (savedCreatures.length > 0) {
+          // Use destructuring for cleaner assignment
+          Object.assign(gameState, {
+            lineage: savedCreatures,
+            hasCreatedCreature: true,
+            parentB: { ...savedCreatures[savedCreatures.length - 1] }
+          });
         }
-        renderLineage();
-        renderLifecycle();
-      });
-
-      // Initialize all systems
-      renderAll();
-      
-      // Start DNA animation loop
-      animateDNAHelixes();
-
-      // Auto-advance lifecycle demo (reduced frequency)
-      setInterval(() => {
-        if (gameState.lineage.length > 0 && Math.random() < 0.05) {
-          const currentCreature = gameState.lineage[gameState.lineage.length - 1];
-          if (currentCreature.stage < LIFECYCLE.length - 1) {
-            evolveCreature(currentCreature.stage + 1);
+        
+        // Initialize 3D habitat first
+        initialize3DHabitat();
+        
+        // Ensure we have properly initialized creatures using modern conditional logic
+        if (!gameState.parentA.traits) {
+          gameState.parentA = generateRandomCreature();
+        }
+        if (!gameState.parentB.traits) {
+          gameState.parentB = generateRandomCreature();
+        }
+        
+        // Ensure we start with a creature in the lineage for immediate display
+        if (gameState.lineage.length === 0) {
+          const startingCreature = { 
+            ...gameState.parentB, 
+            stage: 0 // Start at embryo
+          };
+          gameState.lineage.push(startingCreature);
+        }
+        
+        // Initialize systems synchronously - no async issues
+        initializeDNAHelix();
+        setupDNAInteraction('parent-a-helix', 'parentA');
+        setupDNAInteraction('parent-b-helix', 'parentB');
+        setupDNAControls();
+        
+        // Initialize gyroscope asynchronously as it's optional
+        initializeGyroscope().catch(error => {
+          console.error('Gyroscope initialization failed:', error);
+        });
+        
+        // Setup event listeners using modern patterns
+        const eventListeners = [
+          {
+            id: 'breed-button',
+            event: 'click',
+            handler: breedCreatures
+          },
+          {
+            id: 'view-latest',
+            event: 'click',
+            handler: () => {
+              gameState.selectedCreatureIndex = -1; // -1 means latest
+              if (scene) {
+                create3DCreature();
+              }
+              renderLineage();
+              renderLifecycle();
+            }
           }
-        }
-      }, 5000);
-      
+        ];
+
+        eventListeners.forEach(({ id, event, handler }) => {
+          const element = document.getElementById(id);
+          element?.addEventListener(event, handler);
+        });
+
+        // Initialize all systems
+        renderAll();
+        
+        // Start DNA animation loop
+        animateDNAHelixes();
+
+        // Auto-advance lifecycle demo using modern interval management
+        const lifecycleInterval = setInterval(() => {
+          const shouldAdvance = gameState.lineage.length > 0 && Math.random() < 0.05;
+          
+          if (shouldAdvance) {
+            const currentCreature = gameState.lineage[gameState.lineage.length - 1];
+            const canEvolve = currentCreature.stage < LIFECYCLE.length - 1;
+            
+            if (canEvolve) {
+              evolveCreature(currentCreature.stage + 1);
+            }
+          }
+        }, 5000);
+
+        // Store interval ID for potential cleanup
+        window.lifecycleInterval = lifecycleInterval;
+        
+      } catch (error) {
+        console.error('Initialization failed:', error);
+        // Graceful fallback - basic functionality still works
+      }
     });
   </script>
 </body>
