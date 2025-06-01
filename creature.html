@@ -430,9 +430,10 @@
             <span class="text-xs font-bold uppercase">Environment: </span>
             <span class="text-neon-cyan text-xs font-bold">RESPONSIVE</span>
           </div>
-          <button id="reset-view" class="brutal-button-cyan px-3 py-2 text-xs font-mono" aria-label="Reset habitat view">
-            RESET VIEW
-          </button>
+          <div class="brutal-input px-3 py-2">
+            <span class="text-xs font-bold uppercase">Gyroscope: </span>
+            <span class="text-mutant text-xs font-bold">AUTO</span>
+          </div>
         </nav>
       </div>
     </section>
@@ -750,9 +751,9 @@
         }
         
         localStorage.setItem('xenomorphCreatures', JSON.stringify(saved));
-        console.log('Saved creature to storage:', creature.generation);
       } catch (error) {
         console.error('Failed to save creature:', error);
+        // Gracefully handle storage failure - app continues to work
       }
     }
 
@@ -767,14 +768,19 @@
     }
 
     function getCurrentDisplayCreature() {
-      if (gameState.selectedCreatureIndex >= 0 && gameState.selectedCreatureIndex < gameState.lineage.length) {
-        return gameState.lineage[gameState.selectedCreatureIndex];
+      try {
+        if (gameState.selectedCreatureIndex >= 0 && gameState.selectedCreatureIndex < gameState.lineage.length) {
+          return gameState.lineage[gameState.selectedCreatureIndex];
+        }
+        
+        // Default to latest creature or parentB if no lineage
+        return gameState.lineage.length > 0 ? 
+          gameState.lineage[gameState.lineage.length - 1] : 
+          gameState.parentB;
+      } catch (error) {
+        console.error('Error getting display creature:', error);
+        return gameState.parentB; // Fallback to parentB
       }
-      
-      // Default to latest creature or parentB if no lineage
-      return gameState.lineage.length > 0 ? 
-        gameState.lineage[gameState.lineage.length - 1] : 
-        gameState.parentB;
     }
 
     // === UTILITY FUNCTIONS ===
@@ -1232,19 +1238,23 @@
       // Simplified click handlers with better debugging
       setTimeout(() => {
         container.querySelectorAll('.lifecycle-stage-container').forEach((stageDiv, index) => {
-          console.log(`Setting up stage ${index} (${LIFECYCLE[index].name}) click handler`);
           
           // Remove any existing handlers
           stageDiv.replaceWith(stageDiv.cloneNode(true));
           const newStageDiv = container.querySelectorAll('.lifecycle-stage-container')[index];
           
           newStageDiv.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const targetStage = parseInt(newStageDiv.dataset.stage);
-            console.log(`CLICKED: Stage ${targetStage} (${LIFECYCLE[targetStage].name})`);
-            
-            evolveCreature(targetStage);
+            try {
+              e.preventDefault();
+              e.stopPropagation();
+              const targetStage = parseInt(newStageDiv.dataset.stage);
+              
+              if (!isNaN(targetStage)) {
+                evolveCreature(targetStage);
+              }
+            } catch (error) {
+              console.error('Error handling lifecycle stage click:', error);
+            }
           });
           
           newStageDiv.addEventListener('mouseenter', () => {
@@ -1261,81 +1271,75 @@
     }
 
     function evolveCreature(targetStage) {
-      console.log('=== EVOLVE CREATURE CALLED ===');
-      console.log('Target stage:', targetStage, '(' + LIFECYCLE[targetStage].name + ')');
-      
-      if (!gameState.hasCreatedCreature) {
-        console.log('No creatures created yet, cannot evolve');
-        return;
-      }
-      
-      let currentCreature;
-      let creatureIndex;
-      
-      // Get the creature we're currently viewing/evolving
-      if (gameState.selectedCreatureIndex >= 0) {
-        currentCreature = gameState.lineage[gameState.selectedCreatureIndex];
-        creatureIndex = gameState.selectedCreatureIndex;
-      } else {
-        // Default to latest creature
-        currentCreature = gameState.lineage[gameState.lineage.length - 1];
-        creatureIndex = gameState.lineage.length - 1;
-      }
-      
-      console.log('Evolving creature at index:', creatureIndex, currentCreature);
-      
-      // Allow evolution to any stage (forward or backward)
-      if (targetStage >= 0 && targetStage < LIFECYCLE.length) {
-        const previousStage = currentCreature.stage;
-        currentCreature.stage = targetStage;
-        
-        // Update the creature in the lineage array
-        gameState.lineage[creatureIndex] = currentCreature;
-        
-        // Save updated creature to localStorage
-        saveCreatureToStorage(currentCreature);
-        
-        console.log(`Evolution: ${LIFECYCLE[previousStage].name} (${previousStage}) -> ${LIFECYCLE[targetStage].name} (${targetStage})`);
-        
-        // Force update 3D creature to reflect new stage
-        if (scene) {
-          console.log('About to call create3DCreature for stage:', targetStage);
-          try {
-            create3DCreature();
-            console.log('Successfully created 3D creature for stage:', targetStage);
-          } catch (error) {
-            console.error('Error creating 3D creature:', error);
-          }
+      try {
+        if (!gameState.hasCreatedCreature) {
+          return;
         }
         
-        // Update lifecycle display
-        updateLifecycleDisplay(currentCreature);
-        renderLineage(); // Update lineage to show changes
+        let currentCreature;
+        let creatureIndex;
         
-        // Add evolution effect
-        if (creature3D && creature3D.children.length > 0) {
-          console.log('Adding evolution effect');
-          const targetScale = LIFECYCLE[targetStage].scale || 1.0;
+        // Get the creature we're currently viewing/evolving
+        if (gameState.selectedCreatureIndex >= 0) {
+          currentCreature = gameState.lineage[gameState.selectedCreatureIndex];
+          creatureIndex = gameState.selectedCreatureIndex;
+        } else {
+          // Default to latest creature
+          currentCreature = gameState.lineage[gameState.lineage.length - 1];
+          creatureIndex = gameState.lineage.length - 1;
+        }
+        
+        if (!currentCreature || creatureIndex < 0) {
+          throw new Error('No valid creature found for evolution');
+        }
+        
+        // Allow evolution to any stage (forward or backward)
+        if (targetStage >= 0 && targetStage < LIFECYCLE.length) {
+          const previousStage = currentCreature.stage;
+          currentCreature.stage = targetStage;
           
-          // Animate to larger scale briefly, then back to normal
-          creature3D.scale.setScalar(targetScale * 1.3);
+          // Update the creature in the lineage array
+          gameState.lineage[creatureIndex] = currentCreature;
           
-          setTimeout(() => {
-            if (creature3D) {
-              creature3D.scale.setScalar(targetScale);
+          // Save updated creature to localStorage
+          saveCreatureToStorage(currentCreature);
+          
+          // Force update 3D creature to reflect new stage
+          if (scene) {
+            try {
+              create3DCreature();
+            } catch (error) {
+              console.error('Error creating 3D creature during evolution:', error);
             }
-          }, 300);
+          }
           
-          // Add particle effect
-          createEvolutionParticles();
+          // Update lifecycle display
+          updateLifecycleDisplay(currentCreature);
+          renderLineage(); // Update lineage to show changes
+          
+          // Add evolution effect
+          if (creature3D && creature3D.children.length > 0) {
+            const targetScale = LIFECYCLE[targetStage].scale || 1.0;
+            
+            // Animate to larger scale briefly, then back to normal
+            creature3D.scale.setScalar(targetScale * 1.3);
+            
+            setTimeout(() => {
+              if (creature3D) {
+                creature3D.scale.setScalar(targetScale);
+              }
+            }, 300);
+            
+            // Add particle effect
+            createEvolutionParticles();
+          }
+        } else {
+          console.error('Invalid target stage:', targetStage);
         }
-        
-        console.log('Evolution complete. New stage:', currentCreature.stage);
-      } else {
-        console.error('Invalid target stage:', targetStage);
+      } catch (error) {
+        console.error('Error during creature evolution:', error);
+        // Gracefully handle evolution errors - app continues to work
       }
-      
-      console.log('=== EVOLVE CREATURE COMPLETE ===');
     }
     
     // New function to update lifecycle display without recreating handlers
@@ -1438,16 +1442,21 @@
       // Add click handlers to lineage entries
       container.querySelectorAll('[data-creature-index]').forEach(entry => {
         entry.addEventListener('click', (e) => {
-          const index = parseInt(e.currentTarget.dataset.creatureIndex);
-          console.log('Selected creature index:', index);
-          gameState.selectedCreatureIndex = index;
-          
-          // Update 3D display and UI
-          if (scene) {
-            create3DCreature();
+          try {
+            const index = parseInt(e.currentTarget.dataset.creatureIndex);
+            if (!isNaN(index) && index >= 0 && index < gameState.lineage.length) {
+              gameState.selectedCreatureIndex = index;
+              
+              // Update 3D display and UI
+              if (scene) {
+                create3DCreature();
+              }
+              renderLineage(); // Re-render to show selection
+              renderLifecycle(); // Update lifecycle for selected creature
+            }
+          } catch (error) {
+            console.error('Error selecting creature from lineage:', error);
           }
-          renderLineage(); // Re-render to show selection
-          renderLifecycle(); // Update lifecycle for selected creature
         });
       });
       
@@ -1572,617 +1581,581 @@
     }
 
     function create3DCreature() {
-      const currentCreature = getCurrentDisplayCreature();
-      
-      console.log('=== CREATE 3D CREATURE DEBUG ===');
-      console.log('Current creature:', currentCreature);
-      console.log('Selected index:', gameState.selectedCreatureIndex);
-      console.log('Lineage length:', gameState.lineage.length);
-      
-      if (!currentCreature) {
-        console.error('No creature to create!');
-        return;
-      }
-      
-      if (!currentCreature.traits || currentCreature.traits.length === 0) {
-        console.error('Creature has no traits!', currentCreature);
-        // Generate default traits if missing
-        currentCreature.traits = TRAITS.map(trait => randomChoice(trait.alleles).code);
-        console.log('Generated default traits:', currentCreature.traits);
-      }
-      
-      // Remove existing creature
-      if (creature3D) {
-        scene.remove(creature3D);
-        creature3D = null;
-      }
-      
-      creature3D = new THREE.Group();
-      
-      // Get creature traits - these MUST affect appearance
-      const bodyColorTrait = getTraitInfo(0, currentCreature.traits[0]);
-      const appendageCount = parseInt(currentCreature.traits[1]) || 0;
-      const eyeType = currentCreature.traits[2] || 'S';
-      const wingType = currentCreature.traits[3] || 'N';
-      const specialType = currentCreature.traits[4] || '-';
-      const stage = currentCreature.stage || 0;
-      
-      console.log('Creature traits:');
-      console.log('- Body color:', bodyColorTrait.label, bodyColorTrait.color);
-      console.log('- Appendages:', appendageCount);
-      console.log('- Eyes:', eyeType);
-      console.log('- Wings:', wingType);
-      console.log('- Special:', specialType);
-      console.log('- Stage:', stage, '(' + LIFECYCLE[stage].name + ')');
-      
-      // Handle missing archetype
-      let archetype = currentCreature.archetype;
-      if (!archetype) {
-        archetype = CREATURE_ARCHETYPES[0];
-        currentCreature.archetype = archetype;
-        console.log('Assigned default archetype:', archetype.name);
-      }
-      
-      // IMPORTANT: Use trait color, not archetype base color
-      const bodyColor = bodyColorTrait.color;
-      
-      // Scale based on lifecycle stage - dramatic size differences
-      const stageScales = [0.3, 0.6, 1.0, 1.5, 2.2]; 
-      const stageScale = stageScales[stage];
-      creature3D.scale.setScalar(stageScale);
-      
-      console.log('Creating body with color:', bodyColor, 'scale:', stageScale);
-      
-      // Calculate mutation level for visual effects
-      const mutationLevel = calculateMutationChance() / 100; // 0.0 to 1.0
-      console.log('Mutation level for visuals:', mutationLevel);
-      
-      // BODY - completely different shapes based on stage and traits
-      let bodyGeometry;
-      
-      if (stage === 0) { // Embryo - egg-like but with creature hints
-        if (appendageCount === 0) {
-          bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8); // Elongated egg for serpents
-        } else {
-          bodyGeometry = new THREE.SphereGeometry(0.6, 12, 8); // Rounder egg for limbed creatures
+      try {
+        const currentCreature = getCurrentDisplayCreature();
+        
+        if (!currentCreature) {
+          console.error('No creature to create!');
+          return;
         }
         
-        // Mutation effects for embryo - make it more irregular
-        if (mutationLevel > 0.2) {
-          // Add irregular bumps based on mutation level
-          const bumpCount = Math.floor(3 + mutationLevel * 8); // 3-11 bumps
-          for (let i = 0; i < bumpCount; i++) {
-            const bumpSize = 0.05 + mutationLevel * 0.15; // 0.05-0.2 size
-            const bumpGeometry = new THREE.SphereGeometry(bumpSize, 6, 4);
-            const bumpMaterial = new THREE.MeshPhongMaterial({ 
-              color: new THREE.Color(bodyColor).multiplyScalar(0.7 + mutationLevel * 0.6),
-              transparent: true,
-              opacity: 0.8,
-              emissive: new THREE.Color(bodyColor).multiplyScalar(mutationLevel * 0.3)
-            });
-            const bump = new THREE.Mesh(bumpGeometry, bumpMaterial);
-            
-            // Random positioning around the embryo
-            const phi = Math.random() * Math.PI * 2;
-            const theta = Math.random() * Math.PI;
-            const distance = 0.4 + mutationLevel * 0.3;
-            
-            bump.position.x = Math.sin(theta) * Math.cos(phi) * distance;
-            bump.position.y = Math.sin(theta) * Math.sin(phi) * distance;
-            bump.position.z = Math.cos(theta) * distance;
-            
-            creature3D.add(bump);
+        if (!currentCreature.traits || currentCreature.traits.length === 0) {
+          console.error('Creature has no traits!', currentCreature);
+          // Generate default traits if missing
+          currentCreature.traits = TRAITS.map(trait => randomChoice(trait.alleles).code);
+        }
+        
+        // Remove existing creature
+        if (creature3D) {
+          scene.remove(creature3D);
+          creature3D = null;
+        }
+        
+        creature3D = new THREE.Group();
+        
+        // Get creature traits - these MUST affect appearance
+        const bodyColorTrait = getTraitInfo(0, currentCreature.traits[0]);
+        const appendageCount = parseInt(currentCreature.traits[1]) || 0;
+        const eyeType = currentCreature.traits[2] || 'S';
+        const wingType = currentCreature.traits[3] || 'N';
+        const specialType = currentCreature.traits[4] || '-';
+        const stage = currentCreature.stage || 0;
+        
+        // Handle missing archetype
+        let archetype = currentCreature.archetype;
+        if (!archetype) {
+          archetype = CREATURE_ARCHETYPES[0];
+          currentCreature.archetype = archetype;
+        }
+        
+        // IMPORTANT: Use trait color, not archetype base color
+        const bodyColor = bodyColorTrait.color;
+        
+        // Scale based on lifecycle stage - dramatic size differences
+        const stageScales = [0.3, 0.6, 1.0, 1.5, 2.2]; 
+        const stageScale = stageScales[stage];
+        creature3D.scale.setScalar(stageScale);
+        
+        // Calculate mutation level for visual effects
+        const mutationLevel = calculateMutationChance() / 100; // 0.0 to 1.0
+        
+        // BODY - completely different shapes based on stage and traits
+        let bodyGeometry;
+        
+        if (stage === 0) { // Embryo - egg-like but with creature hints
+          if (appendageCount === 0) {
+            bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8); // Elongated egg for serpents
+          } else {
+            bodyGeometry = new THREE.SphereGeometry(0.6, 12, 8); // Rounder egg for limbed creatures
           }
-          console.log('Added', bumpCount, 'mutation bumps to embryo');
+          
+          // Mutation effects for embryo - make it more irregular
+          if (mutationLevel > 0.2) {
+            // Add irregular bumps based on mutation level
+            const bumpCount = Math.floor(3 + mutationLevel * 8); // 3-11 bumps
+            for (let i = 0; i < bumpCount; i++) {
+              const bumpSize = 0.05 + mutationLevel * 0.15; // 0.05-0.2 size
+              const bumpGeometry = new THREE.SphereGeometry(bumpSize, 6, 4);
+              const bumpMaterial = new THREE.MeshPhongMaterial({ 
+                color: new THREE.Color(bodyColor).multiplyScalar(0.7 + mutationLevel * 0.6),
+                transparent: true,
+                opacity: 0.8,
+                emissive: new THREE.Color(bodyColor).multiplyScalar(mutationLevel * 0.3)
+              });
+              const bump = new THREE.Mesh(bumpGeometry, bumpMaterial);
+              
+              // Random positioning around the embryo
+              const phi = Math.random() * Math.PI * 2;
+              const theta = Math.random() * Math.PI;
+              const distance = 0.4 + mutationLevel * 0.3;
+              
+              bump.position.x = Math.sin(theta) * Math.cos(phi) * distance;
+              bump.position.y = Math.sin(theta) * Math.sin(phi) * distance;
+              bump.position.z = Math.cos(theta) * distance;
+              
+              creature3D.add(bump);
+            }
+          }
+        } else if (stage === 1) { // Larvae - worm-like
+          if (appendageCount === 0) {
+            bodyGeometry = new THREE.CylinderGeometry(0.2, 0.2, 3.0, 8); // Long serpent
+          } else {
+            bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 2.0, 8); // Chunky larva
+          }
+        } else if (stage === 2) { // Juvenile - developing creature
+          if (appendageCount <= 2) {
+            bodyGeometry = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 10); // Bipedal body
+          } else if (appendageCount <= 4) {
+            bodyGeometry = new THREE.BoxGeometry(1.4, 0.8, 0.8); // Quadruped body
+          } else {
+            bodyGeometry = new THREE.OctahedronGeometry(0.7); // Multi-limbed alien
+          }
+        } else if (stage === 3) { // Adult - full creature
+          if (appendageCount === 0) {
+            bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4.0, 12); // Giant serpent
+          } else if (appendageCount <= 2) {
+            bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 2.2, 12); // Humanoid
+          } else if (appendageCount <= 4) {
+            bodyGeometry = new THREE.BoxGeometry(2.0, 1.0, 1.2); // Beast
+          } else {
+            bodyGeometry = new THREE.DodecahedronGeometry(0.9); // Alien horror
+          }
+        } else { // Ancient - massive evolved form
+          if (appendageCount === 0) {
+            bodyGeometry = new THREE.CylinderGeometry(0.7, 0.7, 6.0, 16); // Colossal wyrm
+          } else if (appendageCount <= 2) {
+            bodyGeometry = new THREE.CylinderGeometry(1.2, 1.2, 3.0, 16); // Titan
+          } else {
+            bodyGeometry = new THREE.IcosahedronGeometry(1.2); // Eldritch entity
+          }
         }
         
-        console.log('Created embryo form');
-      } else if (stage === 1) { // Larvae - worm-like
-        if (appendageCount === 0) {
-          bodyGeometry = new THREE.CylinderGeometry(0.2, 0.2, 3.0, 8); // Long serpent
-        } else {
-          bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 2.0, 8); // Chunky larva
-        }
-        console.log('Created larvae capsule');
-      } else if (stage === 2) { // Juvenile - developing creature
-        if (appendageCount <= 2) {
-          bodyGeometry = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 10); // Bipedal body
-        } else if (appendageCount <= 4) {
-          bodyGeometry = new THREE.BoxGeometry(1.4, 0.8, 0.8); // Quadruped body
-        } else {
-          bodyGeometry = new THREE.OctahedronGeometry(0.7); // Multi-limbed alien
-        }
-        console.log('Created juvenile form');
-      } else if (stage === 3) { // Adult - full creature
-        if (appendageCount === 0) {
-          bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4.0, 12); // Giant serpent
-        } else if (appendageCount <= 2) {
-          bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 2.2, 12); // Humanoid
-        } else if (appendageCount <= 4) {
-          bodyGeometry = new THREE.BoxGeometry(2.0, 1.0, 1.2); // Beast
-        } else {
-          bodyGeometry = new THREE.DodecahedronGeometry(0.9); // Alien horror
-        }
-        console.log('Created adult form');
-      } else { // Ancient - massive evolved form
-        if (appendageCount === 0) {
-          bodyGeometry = new THREE.CylinderGeometry(0.7, 0.7, 6.0, 16); // Colossal wyrm
-        } else if (appendageCount <= 2) {
-          bodyGeometry = new THREE.CylinderGeometry(1.2, 1.2, 3.0, 16); // Titan
-        } else {
-          bodyGeometry = new THREE.IcosahedronGeometry(1.2); // Eldritch entity
-        }
-        console.log('Created ancient form');
-      }
-      
-      // MATERIAL - based on body color trait with high visibility + mutation effects
-      const baseShininess = stage * 20;
-      const mutationShininess = mutationLevel * 100; // High mutation = very shiny/metallic
-      const mutationEmissive = mutationLevel * 0.4; // High mutation = glowing
-      
-      const bodyMaterial = new THREE.MeshPhongMaterial({ 
-        color: bodyColor,
-        shininess: baseShininess + mutationShininess,
-        transparent: stage === 0 || mutationLevel > 0.6,
-        opacity: stage === 0 ? (0.7 - mutationLevel * 0.2) : (mutationLevel > 0.6 ? 0.9 : 1.0),
-        emissive: new THREE.Color(bodyColor).multiplyScalar(stage * 0.15 + mutationEmissive),
-        emissiveIntensity: mutationLevel * 0.8 // Mutation makes it glow more
-      });
-      
-      // High mutation can make the body geometry irregular
-      if (mutationLevel > 0.4 && stage > 0) {
-        // Add noise to geometry for high mutation
-        const bodyScale = 1 + (mutationLevel - 0.4) * 0.5; // Up to 1.3x scale for high mutation
-        bodyGeometry.scale(bodyScale, 1, bodyScale);
-      }
-      
-      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-      body.castShadow = true;
-      body.receiveShadow = true;
-      
-      // Mutation can cause body distortion
-      if (mutationLevel > 0.5) {
-        body.rotation.z = (mutationLevel - 0.5) * 0.5; // Slight tilt for high mutation
-        body.scale.y *= 1 + (mutationLevel - 0.5) * 0.8; // Stretch for high mutation
-      }
-      
-      creature3D.add(body);
-      
-      console.log('Added body mesh to creature3D');
-
-      // Add creature features even at embryo stage to make it look more alive
-      if (stage === 0) {
-        // Add eye spots for embryo
-        const eyeSpotGeometry = new THREE.SphereGeometry(0.08, 6, 4);
-        const eyeSpotMaterial = new THREE.MeshPhongMaterial({ 
-          color: 0x000000,
-          transparent: true,
-          opacity: 0.8
+        // MATERIAL - based on body color trait with high visibility + mutation effects
+        const baseShininess = stage * 20;
+        const mutationShininess = mutationLevel * 100; // High mutation = very shiny/metallic
+        const mutationEmissive = mutationLevel * 0.4; // High mutation = glowing
+        
+        const bodyMaterial = new THREE.MeshPhongMaterial({ 
+          color: bodyColor,
+          shininess: baseShininess + mutationShininess,
+          transparent: stage === 0 || mutationLevel > 0.6,
+          opacity: stage === 0 ? (0.7 - mutationLevel * 0.2) : (mutationLevel > 0.6 ? 0.9 : 1.0),
+          emissive: new THREE.Color(bodyColor).multiplyScalar(stage * 0.15 + mutationEmissive),
+          emissiveIntensity: mutationLevel * 0.8 // Mutation makes it glow more
         });
         
-        // Left eye spot
-        const leftEyeSpot = new THREE.Mesh(eyeSpotGeometry, eyeSpotMaterial);
-        leftEyeSpot.position.set(-0.2, 0.3, 0.4);
-        creature3D.add(leftEyeSpot);
-        
-        // Right eye spot
-        const rightEyeSpot = new THREE.Mesh(eyeSpotGeometry, eyeSpotMaterial);
-        rightEyeSpot.position.set(0.2, 0.3, 0.4);
-        creature3D.add(rightEyeSpot);
-        
-        // Add small growth bumps to hint at future appendages
-        if (appendageCount > 0) {
-          for (let i = 0; i < Math.min(4, appendageCount); i++) {
-            const bumpGeometry = new THREE.SphereGeometry(0.06, 6, 4);
-            const bumpMaterial = new THREE.MeshPhongMaterial({ 
-              color: new THREE.Color(bodyColor).multiplyScalar(0.7),
-              transparent: true,
-              opacity: 0.5
-            });
-            const bump = new THREE.Mesh(bumpGeometry, bumpMaterial);
-            
-            const angle = (i / 4) * Math.PI * 2;
-            bump.position.x = Math.cos(angle) * 0.4;
-            bump.position.y = -0.2 + (i % 2) * 0.4;
-            bump.position.z = Math.sin(angle) * 0.4;
-            
-            creature3D.add(bump);
-          }
+        // High mutation can make the body geometry irregular
+        if (mutationLevel > 0.4 && stage > 0) {
+          // Add noise to geometry for high mutation
+          const bodyScale = 1 + (mutationLevel - 0.4) * 0.5; // Up to 1.3x scale for high mutation
+          bodyGeometry.scale(bodyScale, 1, bodyScale);
         }
         
-        // Add mutation-based variations for embryo
-        const mutationLevel = calculateMutationChance() / 100;
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.castShadow = true;
+        body.receiveShadow = true;
         
-        // More mutations = more spiky/different appearance
-        if (mutationLevel > 0.3) {
-          // Add extra spikes for high mutation
-          for (let i = 0; i < 6; i++) {
-            const spikeGeometry = new THREE.ConeGeometry(0.03, 0.2, 4);
-            const spikeMaterial = new THREE.MeshPhongMaterial({ 
-              color: new THREE.Color(bodyColor).multiplyScalar(1.5),
-              emissive: new THREE.Color(bodyColor).multiplyScalar(0.3)
-            });
-            const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
-            
-            const angle = (i / 6) * Math.PI * 2;
-            spike.position.x = Math.cos(angle) * 0.5;
-            spike.position.y = Math.sin(i) * 0.3;
-            spike.position.z = Math.sin(angle) * 0.5;
-            spike.rotation.x = Math.random() * Math.PI;
-            spike.rotation.z = angle;
-            
-            creature3D.add(spike);
-          }
+        // Mutation can cause body distortion
+        if (mutationLevel > 0.5) {
+          body.rotation.z = (mutationLevel - 0.5) * 0.5; // Slight tilt for high mutation
+          body.scale.y *= 1 + (mutationLevel - 0.5) * 0.8; // Stretch for high mutation
         }
         
-        console.log('Added embryo features: eye spots, growth bumps, mutation level:', mutationLevel);
-      }
-      
-      // Add specific features for larvae stage
-      if (stage === 1) {
-        console.log('Adding larvae-specific features for stage 1');
+        creature3D.add(body);
         
-        // REMOVED COMPLEX SEGMENTED BODY - this was causing the creature to disappear
-        // Simple approach: just add basic features like other stages
-        
-        console.log('Added larvae features - simplified approach');
-      }
-      
-      // APPENDAGES - dramatic differences based on count and stage
-      if (stage > 1 && appendageCount > 0) {
-        for (let i = 0; i < appendageCount; i++) {
-          let limbGeometry;
-          let limbLength = 1.0 + (stage * 0.3); // Grow with stage
-          
-          if (appendageCount === 2) {
-            // Humanoid legs
-            limbGeometry = new THREE.CylinderGeometry(0.08, 0.12, limbLength * 1.5);
-          } else if (appendageCount === 4) {
-            // Quadruped legs
-            limbGeometry = new THREE.CylinderGeometry(0.06, 0.1, limbLength);
-          } else if (appendageCount === 6) {
-            // Insectoid legs
-            limbGeometry = new THREE.CylinderGeometry(0.04, 0.08, limbLength * 0.8, 6);
-          } else {
-            // Tentacles or many legs
-            limbGeometry = new THREE.CylinderGeometry(0.03, 0.06, limbLength * 0.6);
-          }
-          
-          const limbMaterial = new THREE.MeshPhongMaterial({ 
-            color: new THREE.Color(bodyColor).multiplyScalar(0.8),
-            emissive: new THREE.Color(bodyColor).multiplyScalar(mutationLevel * 0.3), // Mutation glow
-            emissiveIntensity: mutationLevel * 0.6
+        // Add creature features even at embryo stage to make it look more alive
+        if (stage === 0) {
+          // Add eye spots for embryo
+          const eyeSpotGeometry = new THREE.SphereGeometry(0.08, 6, 4);
+          const eyeSpotMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.8
           });
-          const limb = new THREE.Mesh(limbGeometry, limbMaterial);
           
-          const angle = (i / appendageCount) * Math.PI * 2;
-          const radius = appendageCount <= 2 ? 0.3 : 0.8;
+          // Left eye spot
+          const leftEyeSpot = new THREE.Mesh(eyeSpotGeometry, eyeSpotMaterial);
+          leftEyeSpot.position.set(-0.2, 0.3, 0.4);
+          creature3D.add(leftEyeSpot);
           
-          limb.position.x = Math.cos(angle) * radius;
-          limb.position.z = Math.sin(angle) * radius;
-          limb.position.y = -limbLength * 0.4;
-          limb.rotation.z = Math.cos(angle) * 0.3; // Natural leg angles
-          limb.castShadow = true;
+          // Right eye spot
+          const rightEyeSpot = new THREE.Mesh(eyeSpotGeometry, eyeSpotMaterial);
+          rightEyeSpot.position.set(0.2, 0.3, 0.4);
+          creature3D.add(rightEyeSpot);
           
-          // Mutation effects on limbs
-          if (mutationLevel > 0.4) {
-            // High mutation makes limbs irregular
-            const mutationVariation = 1 + (mutationLevel - 0.4) * 0.8;
-            limb.scale.x *= mutationVariation * (0.5 + Math.random());
-            limb.scale.z *= mutationVariation * (0.5 + Math.random());
-            
-            // Random limb distortion for high mutation
-            if (mutationLevel > 0.7) {
-              limb.rotation.x += (Math.random() - 0.5) * mutationLevel;
-              limb.rotation.y += (Math.random() - 0.5) * mutationLevel;
-              limb.scale.y *= 1 + (Math.random() - 0.5) * mutationLevel * 0.5;
+          // Add small growth bumps to hint at future appendages
+          if (appendageCount > 0) {
+            for (let i = 0; i < Math.min(4, appendageCount); i++) {
+              const bumpGeometry = new THREE.SphereGeometry(0.06, 6, 4);
+              const bumpMaterial = new THREE.MeshPhongMaterial({ 
+                color: new THREE.Color(bodyColor).multiplyScalar(0.7),
+                transparent: true,
+                opacity: 0.5
+              });
+              const bump = new THREE.Mesh(bumpGeometry, bumpMaterial);
+              
+              const angle = (i / 4) * Math.PI * 2;
+              bump.position.x = Math.cos(angle) * 0.4;
+              bump.position.y = -0.2 + (i % 2) * 0.4;
+              bump.position.z = Math.sin(angle) * 0.4;
+              
+              creature3D.add(bump);
             }
           }
           
-          creature3D.add(limb);
-        }
-        console.log('Added', appendageCount, 'appendages');
-      }
-      
-      // EYES - dramatic visual differences (keep larvae eyes in main eye system)
-      if (stage > 0) {
-        let eyeCount, eyeSize, eyeColor, eyeEmission;
-        
-        if (stage === 1) {
-          // Simple larvae eyes
-          eyeCount = 2;
-          eyeSize = 0.08;
-          eyeColor = 0x333333;
-          eyeEmission = 0x111111;
-        } else {
-          switch (eyeType) {
-            case 'S': // Standard
-              eyeCount = 2;
-              eyeSize = 0.1;
-              eyeColor = 0xffffff;
-              eyeEmission = 0x000000;
-              break;
-            case 'L': // Enhanced
-              eyeCount = 2;
-              eyeSize = 0.18;
-              eyeColor = 0x66ff66;
-              eyeEmission = 0x002200;
-              break;
-            case 'X': // Compound
-              eyeCount = 6;
-              eyeSize = 0.08;
-              eyeColor = 0xff6666;
-              eyeEmission = 0x220000;
-              break;
-            case 'V': // Void
-              eyeCount = 1;
-              eyeSize = 0.25;
-              eyeColor = 0x6666ff;
-              eyeEmission = 0x000066;
-              break;
-          }
-        }
-        
-        for (let i = 0; i < eyeCount; i++) {
-          const eyeGeometry = new THREE.SphereGeometry(eyeSize * (1 + stage * 0.2), 8, 6);
-          const eyeMaterial = new THREE.MeshPhongMaterial({ 
-            color: eyeColor,
-            emissive: eyeEmission,
-            emissiveIntensity: (0.3 + stage * 0.1) + (mutationLevel * 0.5) // Mutation makes eyes glow more
-          });
-          const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+          // Add mutation-based variations for embryo
+          const mutationLevel = calculateMutationChance() / 100;
           
-          if (eyeCount === 1) {
-            eye.position.set(0, 0.4, 0.6);
-          } else {
-            const eyeAngle = (i / eyeCount) * Math.PI * 2;
-            const eyeRadius = eyeCount === 2 ? 0.3 : 0.5;
-            eye.position.x = Math.cos(eyeAngle) * eyeRadius;
-            eye.position.y = 0.3 + Math.sin(eyeAngle) * 0.1;
-            eye.position.z = Math.sin(eyeAngle) * eyeRadius + 0.4;
-          }
-          
-          // Mutation effects on eyes
+          // More mutations = more spiky/different appearance
           if (mutationLevel > 0.3) {
-            // High mutation makes eyes larger and more irregular
-            const mutationScale = 1 + mutationLevel * 0.8;
-            eye.scale.setScalar(mutationScale);
-            
-            // Add random eye distortion
-            if (mutationLevel > 0.6) {
-              eye.scale.x *= 1 + (Math.random() - 0.5) * mutationLevel;
-              eye.scale.y *= 1 + (Math.random() - 0.5) * mutationLevel;
-              eye.rotation.z = (Math.random() - 0.5) * mutationLevel * 2;
+            // Add extra spikes for high mutation
+            for (let i = 0; i < 6; i++) {
+              const spikeGeometry = new THREE.ConeGeometry(0.03, 0.2, 4);
+              const spikeMaterial = new THREE.MeshPhongMaterial({ 
+                color: new THREE.Color(bodyColor).multiplyScalar(1.5),
+                emissive: new THREE.Color(bodyColor).multiplyScalar(0.3)
+              });
+              const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+              
+              const angle = (i / 6) * Math.PI * 2;
+              spike.position.x = Math.cos(angle) * 0.5;
+              spike.position.y = Math.sin(i) * 0.3;
+              spike.position.z = Math.sin(angle) * 0.5;
+              spike.rotation.x = Math.random() * Math.PI;
+              spike.rotation.z = angle;
+              
+              creature3D.add(spike);
             }
           }
           
-          creature3D.add(eye);
-        }
-        console.log('Added', eyeCount, 'eyes for stage:', stage);
-      }
-      
-      // WINGS - only appear at adult+ stages
-      if (stage >= 3 && wingType !== 'N') {
-        let wingMaterial, wingSize;
-        
-        switch (wingType) {
-          case 'F': // Feathered
-            wingMaterial = new THREE.MeshPhongMaterial({ 
-              color: 0x4466ff,
-              transparent: true,
-              opacity: 0.8,
-              side: THREE.DoubleSide
-            });
-            wingSize = [2.0, 1.2];
-            break;
-          case 'M': // Membrane
-            wingMaterial = new THREE.MeshPhongMaterial({ 
-              color: 0x664466,
-              transparent: true,
-              opacity: 0.6,
-              side: THREE.DoubleSide
-            });
-            wingSize = [2.5, 1.5];
-            break;
-          case 'E': // Energy
-            wingMaterial = new THREE.MeshPhongMaterial({ 
-              color: 0x6666ff,
-              transparent: true,
-              opacity: 0.4,
-              emissive: 0x3333ff,
-              emissiveIntensity: 0.5,
-              side: THREE.DoubleSide
-            });
-            wingSize = [3.0, 1.0];
-            break;
+          
         }
         
-        const wingGeometry = new THREE.PlaneGeometry(wingSize[0], wingSize[1]);
+        // Add specific features for larvae stage
+        if (stage === 1) {
+          // REMOVED COMPLEX SEGMENTED BODY - this was causing the creature to disappear
+          // Simple approach: just add basic features like other stages
+        }
         
-        // Left wing
-        const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        leftWing.position.set(-1.2, 0.5, 0);
-        leftWing.rotation.y = Math.PI / 4;
-        leftWing.rotation.z = -Math.PI / 6;
-        creature3D.add(leftWing);
-        
-        // Right wing
-        const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
-        rightWing.position.set(1.2, 0.5, 0);
-        rightWing.rotation.y = -Math.PI / 4;
-        rightWing.rotation.z = Math.PI / 6;
-        creature3D.add(rightWing);
-        
-        console.log('Added wings of type:', wingType);
-      }
-      
-      // SPECIAL FEATURES - visible at juvenile+ stages
-      if (stage >= 2 && specialType !== '-') {
-        const specialColor = getTraitInfo(4, specialType).color;
-        
-        switch (specialType) {
-          case 'T': // Crystalline Tail
-            const tailGeometry = new THREE.ConeGeometry(0.15, 2.5 + stage * 0.5, 8);
-            const tailMaterial = new THREE.MeshPhongMaterial({ 
-              color: specialColor,
-              transparent: true,
-              opacity: 0.8,
-              emissive: new THREE.Color(specialColor).multiplyScalar(0.3 + mutationLevel * 0.4),
-              emissiveIntensity: mutationLevel * 0.8
-            });
-            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
-            tail.position.set(0, -0.5, -1.5);
-            tail.rotation.x = Math.PI / 3;
+        // APPENDAGES - dramatic differences based on count and stage
+        if (stage > 1 && appendageCount > 0) {
+          for (let i = 0; i < appendageCount; i++) {
+            let limbGeometry;
+            let limbLength = 1.0 + (stage * 0.3); // Grow with stage
             
-            // Mutation effects on tail
-            if (mutationLevel > 0.5) {
-              tail.scale.x *= 1 + mutationLevel * 0.5;
-              tail.rotation.z = (Math.random() - 0.5) * mutationLevel;
+            if (appendageCount === 2) {
+              // Humanoid legs
+              limbGeometry = new THREE.CylinderGeometry(0.08, 0.12, limbLength * 1.5);
+            } else if (appendageCount === 4) {
+              // Quadruped legs
+              limbGeometry = new THREE.CylinderGeometry(0.06, 0.1, limbLength);
+            } else if (appendageCount === 6) {
+              // Insectoid legs
+              limbGeometry = new THREE.CylinderGeometry(0.04, 0.08, limbLength * 0.8, 6);
+            } else {
+              // Tentacles or many legs
+              limbGeometry = new THREE.CylinderGeometry(0.03, 0.06, limbLength * 0.6);
             }
             
-            creature3D.add(tail);
-            break;
+            const limbMaterial = new THREE.MeshPhongMaterial({ 
+              color: new THREE.Color(bodyColor).multiplyScalar(0.8),
+              emissive: new THREE.Color(bodyColor).multiplyScalar(mutationLevel * 0.3), // Mutation glow
+              emissiveIntensity: mutationLevel * 0.6
+            });
+            const limb = new THREE.Mesh(limbGeometry, limbMaterial);
             
-          case 'H': // Plasma Horns
-            const hornCount = stage >= 4 ? 4 : 2;
-            for (let i = 0; i < hornCount; i++) {
-              const hornLength = 1.2 + stage * 0.3 + mutationLevel * 0.8; // Mutation makes horns longer
-              const hornGeometry = new THREE.ConeGeometry(0.08, hornLength, 6);
-              const hornMaterial = new THREE.MeshPhongMaterial({ 
-                color: specialColor,
-                emissive: new THREE.Color(specialColor).multiplyScalar(0.5 + mutationLevel * 0.5),
-                emissiveIntensity: mutationLevel * 1.2
-              });
-              const horn = new THREE.Mesh(hornGeometry, hornMaterial);
+            const angle = (i / appendageCount) * Math.PI * 2;
+            const radius = appendageCount <= 2 ? 0.3 : 0.8;
+            
+            limb.position.x = Math.cos(angle) * radius;
+            limb.position.z = Math.sin(angle) * radius;
+            limb.position.y = -limbLength * 0.4;
+            limb.rotation.z = Math.cos(angle) * 0.3; // Natural leg angles
+            limb.castShadow = true;
+            
+            // Mutation effects on limbs
+            if (mutationLevel > 0.4) {
+              // High mutation makes limbs irregular
+              const mutationVariation = 1 + (mutationLevel - 0.4) * 0.8;
+              limb.scale.x *= mutationVariation * (0.5 + Math.random());
+              limb.scale.z *= mutationVariation * (0.5 + Math.random());
               
-              if (hornCount === 2) {
-                horn.position.set(i === 0 ? -0.3 : 0.3, 1.2, 0.3);
-              } else {
-                const hornAngle = (i / hornCount) * Math.PI * 2;
-                horn.position.x = Math.cos(hornAngle) * 0.4;
-                horn.position.y = 1.2;
-                horn.position.z = Math.sin(hornAngle) * 0.4;
+              // Random limb distortion for high mutation
+              if (mutationLevel > 0.7) {
+                limb.rotation.x += (Math.random() - 0.5) * mutationLevel;
+                limb.rotation.y += (Math.random() - 0.5) * mutationLevel;
+                limb.scale.y *= 1 + (Math.random() - 0.5) * mutationLevel * 0.5;
               }
-              horn.rotation.x = -Math.PI / 8;
+            }
+            
+            creature3D.add(limb);
+          }
+        }
+        
+        // EYES - dramatic visual differences (keep larvae eyes in main eye system)
+        if (stage > 0) {
+          let eyeCount, eyeSize, eyeColor, eyeEmission;
+          
+          if (stage === 1) {
+            // Simple larvae eyes
+            eyeCount = 2;
+            eyeSize = 0.08;
+            eyeColor = 0x333333;
+            eyeEmission = 0x111111;
+          } else {
+            switch (eyeType) {
+              case 'S': // Standard
+                eyeCount = 2;
+                eyeSize = 0.1;
+                eyeColor = 0xffffff;
+                eyeEmission = 0x000000;
+                break;
+              case 'L': // Enhanced
+                eyeCount = 2;
+                eyeSize = 0.18;
+                eyeColor = 0x66ff66;
+                eyeEmission = 0x002200;
+                break;
+              case 'X': // Compound
+                eyeCount = 6;
+                eyeSize = 0.08;
+                eyeColor = 0xff6666;
+                eyeEmission = 0x220000;
+                break;
+              case 'V': // Void
+                eyeCount = 1;
+                eyeSize = 0.25;
+                eyeColor = 0x6666ff;
+                eyeEmission = 0x000066;
+                break;
+            }
+          }
+          
+          for (let i = 0; i < eyeCount; i++) {
+            const eyeGeometry = new THREE.SphereGeometry(eyeSize * (1 + stage * 0.2), 8, 6);
+            const eyeMaterial = new THREE.MeshPhongMaterial({ 
+              color: eyeColor,
+              emissive: eyeEmission,
+              emissiveIntensity: (0.3 + stage * 0.1) + (mutationLevel * 0.5) // Mutation makes eyes glow more
+            });
+            const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            
+            if (eyeCount === 1) {
+              eye.position.set(0, 0.4, 0.6);
+            } else {
+              const eyeAngle = (i / eyeCount) * Math.PI * 2;
+              const eyeRadius = eyeCount === 2 ? 0.3 : 0.5;
+              eye.position.x = Math.cos(eyeAngle) * eyeRadius;
+              eye.position.y = 0.3 + Math.sin(eyeAngle) * 0.1;
+              eye.position.z = Math.sin(eyeAngle) * eyeRadius + 0.4;
+            }
+            
+            // Mutation effects on eyes
+            if (mutationLevel > 0.3) {
+              // High mutation makes eyes larger and more irregular
+              const mutationScale = 1 + mutationLevel * 0.8;
+              eye.scale.setScalar(mutationScale);
               
-              // Mutation effects on horns
+              // Add random eye distortion
               if (mutationLevel > 0.6) {
-                horn.rotation.x += (Math.random() - 0.5) * mutationLevel;
-                horn.rotation.z += (Math.random() - 0.5) * mutationLevel;
-                horn.scale.x *= 1 + (Math.random() - 0.5) * mutationLevel;
+                eye.scale.x *= 1 + (Math.random() - 0.5) * mutationLevel;
+                eye.scale.y *= 1 + (Math.random() - 0.5) * mutationLevel;
+                eye.rotation.z = (Math.random() - 0.5) * mutationLevel * 2;
               }
-              
-              creature3D.add(horn);
             }
-            break;
             
-          case 'S': // Bio Spines
-            const spineCount = 4 + stage * 2 + Math.floor(mutationLevel * 6); // More spines with mutation
-            for (let i = 0; i < spineCount; i++) {
-              const spineLength = 0.8 + stage * 0.2 + mutationLevel * 0.4;
-              const spineGeometry = new THREE.ConeGeometry(0.05, spineLength, 4);
-              const spineMaterial = new THREE.MeshPhongMaterial({ 
-                color: specialColor,
-                emissive: new THREE.Color(specialColor).multiplyScalar(mutationLevel * 0.4),
-                emissiveIntensity: mutationLevel * 0.6
+            creature3D.add(eye);
+          }
+          
+        }
+        
+        // WINGS - only appear at adult+ stages
+        if (stage >= 3 && wingType !== 'N') {
+          let wingMaterial, wingSize;
+          
+          switch (wingType) {
+            case 'F': // Feathered
+              wingMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x4466ff,
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide
               });
-              const spine = new THREE.Mesh(spineGeometry, spineMaterial);
-              
-              const spineAngle = (i / spineCount) * Math.PI * 2;
-              spine.position.x = Math.cos(spineAngle) * 0.6;
-              spine.position.y = 0.8 + Math.sin(i) * 0.3;
-              spine.position.z = Math.sin(spineAngle) * 0.6;
-              spine.rotation.x = -Math.PI / 2;
-              spine.rotation.z = spineAngle;
-              
-              // Mutation effects on spines
-              if (mutationLevel > 0.4) {
-                spine.scale.y *= 1 + mutationLevel * 0.8;
-                spine.rotation.x += (Math.random() - 0.5) * mutationLevel * 0.5;
-              }
-              
-              creature3D.add(spine);
-            }
-            break;
-            
-          case 'A': // Armor Plating
-            const plateCount = 8 + stage * 2 + Math.floor(mutationLevel * 4);
-            for (let i = 0; i < plateCount; i++) {
-              const plateGeometry = new THREE.BoxGeometry(0.4, 0.15, 0.3);
-              const plateMaterial = new THREE.MeshStandardMaterial({ 
-                color: specialColor,
-                metalness: 0.9 + mutationLevel * 0.1,
-                roughness: Math.max(0.1, 0.3 - mutationLevel * 0.2),
-                emissive: new THREE.Color(specialColor).multiplyScalar(mutationLevel * 0.3)
+              wingSize = [2.0, 1.2];
+              break;
+            case 'M': // Membrane
+              wingMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x664466,
+                transparent: true,
+                opacity: 0.6,
+                side: THREE.DoubleSide
               });
-              const plate = new THREE.Mesh(plateGeometry, plateMaterial);
+              wingSize = [2.5, 1.5];
+              break;
+            case 'E': // Energy
+              wingMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x6666ff,
+                transparent: true,
+                opacity: 0.4,
+                emissive: 0x3333ff,
+                emissiveIntensity: 0.5,
+                side: THREE.DoubleSide
+              });
+              wingSize = [3.0, 1.0];
+              break;
+          }
+          
+          const wingGeometry = new THREE.PlaneGeometry(wingSize[0], wingSize[1]);
+          
+          // Left wing
+          const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+          leftWing.position.set(-1.2, 0.5, 0);
+          leftWing.rotation.y = Math.PI / 4;
+          leftWing.rotation.z = -Math.PI / 6;
+          creature3D.add(leftWing);
+          
+          // Right wing
+          const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+          rightWing.position.set(1.2, 0.5, 0);
+          rightWing.rotation.y = -Math.PI / 4;
+          rightWing.rotation.z = Math.PI / 6;
+          creature3D.add(rightWing);
+          
+          
+        }
+        
+        // SPECIAL FEATURES - visible at juvenile+ stages
+        if (stage >= 2 && specialType !== '-') {
+          const specialColor = getTraitInfo(4, specialType).color;
+          
+          switch (specialType) {
+            case 'T': // Crystalline Tail
+              const tailGeometry = new THREE.ConeGeometry(0.15, 2.5 + stage * 0.5, 8);
+              const tailMaterial = new THREE.MeshPhongMaterial({ 
+                color: specialColor,
+                transparent: true,
+                opacity: 0.8,
+                emissive: new THREE.Color(specialColor).multiplyScalar(0.3 + mutationLevel * 0.4),
+                emissiveIntensity: mutationLevel * 0.8
+              });
+              const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+              tail.position.set(0, -0.5, -1.5);
+              tail.rotation.x = Math.PI / 3;
               
-              const plateAngle = (i / plateCount) * Math.PI * 2;
-              plate.position.x = Math.cos(plateAngle) * 0.7;
-              plate.position.y = 0.3 + (i % 3) * 0.4;
-              plate.position.z = Math.sin(plateAngle) * 0.7;
-              plate.rotation.y = plateAngle;
-              
-              // Mutation effects on armor
+              // Mutation effects on tail
               if (mutationLevel > 0.5) {
-                plate.scale.setScalar(1 + mutationLevel * 0.5);
-                plate.rotation.x = (Math.random() - 0.5) * mutationLevel;
+                tail.scale.x *= 1 + mutationLevel * 0.5;
+                tail.rotation.z = (Math.random() - 0.5) * mutationLevel;
               }
               
-              creature3D.add(plate);
-            }
-            break;
-        }
-        console.log('Added special feature:', specialType, 'with mutation level:', mutationLevel);
-      }
-      
-      // EXTREME MUTATION CHAOS - add random spikes/growths for very high mutation
-      if (mutationLevel > 0.8 && stage > 0) {
-        const chaosCount = Math.floor((mutationLevel - 0.8) * 15); // Up to 3 chaos elements
-        for (let i = 0; i < chaosCount; i++) {
-          const chaosGeometry = Math.random() > 0.5 ? 
-            new THREE.ConeGeometry(0.1, 0.5, 4) : 
-            new THREE.SphereGeometry(0.08, 6, 4);
-          const chaosMaterial = new THREE.MeshPhongMaterial({ 
-            color: new THREE.Color().setHSL(Math.random(), 1, 0.5),
-            emissive: new THREE.Color().setHSL(Math.random(), 1, 0.3),
-            emissiveIntensity: 1.0
-          });
-          const chaos = new THREE.Mesh(chaosGeometry, chaosMaterial);
+              creature3D.add(tail);
+              break;
+              
+            case 'H': // Plasma Horns
+              const hornCount = stage >= 4 ? 4 : 2;
+              for (let i = 0; i < hornCount; i++) {
+                const hornLength = 1.2 + stage * 0.3 + mutationLevel * 0.8; // Mutation makes horns longer
+                const hornGeometry = new THREE.ConeGeometry(0.08, hornLength, 6);
+                const hornMaterial = new THREE.MeshPhongMaterial({ 
+                  color: specialColor,
+                  emissive: new THREE.Color(specialColor).multiplyScalar(0.5 + mutationLevel * 0.5),
+                  emissiveIntensity: mutationLevel * 1.2
+                });
+                const horn = new THREE.Mesh(hornGeometry, hornMaterial);
+                
+                if (hornCount === 2) {
+                  horn.position.set(i === 0 ? -0.3 : 0.3, 1.2, 0.3);
+                } else {
+                  const hornAngle = (i / hornCount) * Math.PI * 2;
+                  horn.position.x = Math.cos(hornAngle) * 0.4;
+                  horn.position.y = 1.2;
+                  horn.position.z = Math.sin(hornAngle) * 0.4;
+                }
+                horn.rotation.x = -Math.PI / 8;
+                
+                // Mutation effects on horns
+                if (mutationLevel > 0.6) {
+                  horn.rotation.x += (Math.random() - 0.5) * mutationLevel;
+                  horn.rotation.z += (Math.random() - 0.5) * mutationLevel;
+                  horn.scale.x *= 1 + (Math.random() - 0.5) * mutationLevel;
+                }
+                
+                creature3D.add(horn);
+              }
+              break;
+              
+            case 'S': // Bio Spines
+              const spineCount = 4 + stage * 2 + Math.floor(mutationLevel * 6); // More spines with mutation
+              for (let i = 0; i < spineCount; i++) {
+                const spineLength = 0.8 + stage * 0.2 + mutationLevel * 0.4;
+                const spineGeometry = new THREE.ConeGeometry(0.05, spineLength, 4);
+                const spineMaterial = new THREE.MeshPhongMaterial({ 
+                  color: specialColor,
+                  emissive: new THREE.Color(specialColor).multiplyScalar(mutationLevel * 0.4),
+                  emissiveIntensity: mutationLevel * 0.6
+                });
+                const spine = new THREE.Mesh(spineGeometry, spineMaterial);
+                
+                const spineAngle = (i / spineCount) * Math.PI * 2;
+                spine.position.x = Math.cos(spineAngle) * 0.6;
+                spine.position.y = 0.8 + Math.sin(i) * 0.3;
+                spine.position.z = Math.sin(spineAngle) * 0.6;
+                spine.rotation.x = -Math.PI / 2;
+                spine.rotation.z = spineAngle;
+                
+                // Mutation effects on spines
+                if (mutationLevel > 0.4) {
+                  spine.scale.y *= 1 + mutationLevel * 0.8;
+                  spine.rotation.x += (Math.random() - 0.5) * mutationLevel * 0.5;
+                }
+                
+                creature3D.add(spine);
+              }
+              break;
+              
+            case 'A': // Armor Plating
+              const plateCount = 8 + stage * 2 + Math.floor(mutationLevel * 4);
+              for (let i = 0; i < plateCount; i++) {
+                const plateGeometry = new THREE.BoxGeometry(0.4, 0.15, 0.3);
+                const plateMaterial = new THREE.MeshStandardMaterial({ 
+                  color: specialColor,
+                  metalness: 0.9 + mutationLevel * 0.1,
+                  roughness: Math.max(0.1, 0.3 - mutationLevel * 0.2),
+                  emissive: new THREE.Color(specialColor).multiplyScalar(mutationLevel * 0.3)
+                });
+                const plate = new THREE.Mesh(plateGeometry, plateMaterial);
+                
+                const plateAngle = (i / plateCount) * Math.PI * 2;
+                plate.position.x = Math.cos(plateAngle) * 0.7;
+                plate.position.y = 0.3 + (i % 3) * 0.4;
+                plate.position.z = Math.sin(plateAngle) * 0.7;
+                plate.rotation.y = plateAngle;
+                
+                // Mutation effects on armor
+                if (mutationLevel > 0.5) {
+                  plate.scale.setScalar(1 + mutationLevel * 0.5);
+                  plate.rotation.x = (Math.random() - 0.5) * mutationLevel;
+                }
+                
+                creature3D.add(plate);
+              }
+              break;
+          }
           
-          // Random positioning
-          chaos.position.x = (Math.random() - 0.5) * 2;
-          chaos.position.y = (Math.random() - 0.5) * 2;
-          chaos.position.z = (Math.random() - 0.5) * 2;
-          chaos.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-          
-          creature3D.add(chaos);
         }
-        console.log('Added', chaosCount, 'chaos mutations for extreme mutation level');
+        
+        // EXTREME MUTATION CHAOS - add random spikes/growths for very high mutation
+        if (mutationLevel > 0.8 && stage > 0) {
+          const chaosCount = Math.floor((mutationLevel - 0.8) * 15); // Up to 3 chaos elements
+          for (let i = 0; i < chaosCount; i++) {
+            const chaosGeometry = Math.random() > 0.5 ? 
+              new THREE.ConeGeometry(0.1, 0.5, 4) : 
+              new THREE.SphereGeometry(0.08, 6, 4);
+            const chaosMaterial = new THREE.MeshPhongMaterial({ 
+              color: new THREE.Color().setHSL(Math.random(), 1, 0.5),
+              emissive: new THREE.Color().setHSL(Math.random(), 1, 0.3),
+              emissiveIntensity: 1.0
+            });
+            const chaos = new THREE.Mesh(chaosGeometry, chaosMaterial);
+            
+            // Random positioning
+            chaos.position.x = (Math.random() - 0.5) * 2;
+            chaos.position.y = (Math.random() - 0.5) * 2;
+            chaos.position.z = (Math.random() - 0.5) * 2;
+            chaos.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            
+            creature3D.add(chaos);
+          }
+          
+        }
+        
+        creature3D.position.y = 0;
+        scene.add(creature3D);
+        
+        // FORCE VISIBLE POSITION AND ADD TO SCENE IMMEDIATELY
+        creature3D.position.set(0, 0, 0);
+        scene.add(creature3D);
+
+        
+        // Force immediate render
+        if (renderer) {
+          renderer.render(scene, camera);
+          
+        }
+        
+      } catch (error) {
+        console.error('Error creating 3D creature:', error);
       }
-      
-      creature3D.position.y = 0;
-      scene.add(creature3D);
-      
-      console.log('FINAL CREATURE: Stage', stage, 'Scale', stageScale, 'Color', bodyColor);
-      console.log('Creature3D children count after creation:', creature3D.children.length);
-      console.log('Creature3D position:', creature3D.position);
-      console.log('Scene children count after adding creature:', scene.children.length);
-      
-      // FORCE VISIBLE POSITION AND ADD TO SCENE IMMEDIATELY
-      creature3D.position.set(0, 0, 0);
-      scene.add(creature3D);
-      
-      console.log('Added creature3D to scene at position:', creature3D.position);
-      console.log('Scene children count:', scene.children.length);
-      console.log('=== END CREATE 3D CREATURE DEBUG ===');
-      
-      // Force immediate render
-      if (renderer) {
-        renderer.render(scene, camera);
-        console.log('Forced render after creature creation');
-      }
-      
     }
 
     function animate3D() {
@@ -2300,13 +2273,13 @@
     }
 
     function breedCreatures() {
-      console.log('breedCreatures called'); // Debug log
+      
       
       if (!gameState.offspring) {
         gameState.offspring = calculateOffspring();
       }
 
-      console.log('Breeding offspring:', gameState.offspring); // Debug log
+      
 
       // Add to lineage
       gameState.lineage.push(gameState.offspring);
@@ -2349,11 +2322,11 @@
       const newCreature = gameState.lineage[gameState.lineage.length - 1];
       newCreature.stage = 0;
       
-      console.log('New creature in lineage with archetype:', newCreature, newCreature.archetype); // Debug log
+      
       
       // Force immediate 3D creature update
       if (scene) {
-        console.log('Force creating 3D creature after breeding');
+        
         
         // Remove any existing creature first
         if (creature3D) {
@@ -2374,9 +2347,9 @@
 
     // === MAIN RENDERING ===
     function renderAll() {
-      console.log('renderAll called'); // Debug log
-      console.log('Current lineage length:', gameState.lineage.length);
-      console.log('Current parentB:', gameState.parentB);
+      
+      
+      
       
       updateOffspringPreview();
       renderLifecycle();
@@ -2388,11 +2361,11 @@
         gameState.lineage[gameState.lineage.length - 1] : 
         gameState.parentB;
         
-      console.log('Current creature to display:', currentCreature);
+      
       
       // Force update 3D creature
       if (scene && currentCreature) {
-        console.log('Updating 3D creature in renderAll');
+        
         create3DCreature();
       }
     }
@@ -2440,12 +2413,12 @@
 
     // === INITIALIZATION ===
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('=== INITIALIZATION STARTED ===');
+      
       
       // Load saved creatures from localStorage
       const savedCreatures = loadCreaturesFromStorage();
       if (savedCreatures.length > 0) {
-        console.log('Loaded', savedCreatures.length, 'saved creatures');
+        
         gameState.lineage = savedCreatures;
         gameState.hasCreatedCreature = true;
         
@@ -2453,7 +2426,7 @@
         const latestCreature = savedCreatures[savedCreatures.length - 1];
         gameState.parentB = { ...latestCreature };
         
-        console.log('Restored latest creature:', latestCreature);
+        
       }
       
       // Initialize 3D habitat first
@@ -2467,15 +2440,15 @@
         gameState.parentB = generateRandomCreature();
       }
       
-      console.log('Initial parentA:', gameState.parentA);
-      console.log('Initial parentB:', gameState.parentB);
+      
+      
       
       // Ensure we start with a creature in the lineage for immediate display
       if (gameState.lineage.length === 0) {
         const startingCreature = { ...gameState.parentB };
         startingCreature.stage = 0; // Start at embryo
         gameState.lineage.push(startingCreature);
-        console.log('Created starting creature in lineage:', startingCreature);
+        
       }
       
       // Initialize DNA helix system
@@ -2493,22 +2466,9 @@
       
       // Event listeners
       document.getElementById('breed-button').addEventListener('click', () => {
-        console.log('=== BREED BUTTON CLICKED ===');
-        console.log('Before breeding - parentA:', gameState.parentA);
-        console.log('Before breeding - parentB:', gameState.parentB);
-        console.log('Before breeding - lineage length:', gameState.lineage.length);
         breedCreatures();
-        console.log('After breeding - lineage length:', gameState.lineage.length);
-        console.log('After breeding - latest creature:', gameState.lineage[gameState.lineage.length - 1]);
       });
       
-      // Reset view button
-      document.getElementById('reset-view').addEventListener('click', () => {
-        gameState.viewRotation = { x: 0, y: 0 };
-        camera.position.set(0, 2, 5);
-        camera.lookAt(0, 0, 0);
-      });
-
       // Latest creature button
       document.getElementById('view-latest').addEventListener('click', () => {
         gameState.selectedCreatureIndex = -1; // -1 means latest
@@ -2535,7 +2495,6 @@
         }
       }, 5000);
       
-      console.log('=== INITIALIZATION COMPLETE ===');
     });
   </script>
 </body>
